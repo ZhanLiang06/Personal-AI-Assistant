@@ -8,3 +8,13 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Environment variables
+.env
+
+#prompt.md
+prompt.md
+
+# Data Files
+data/
+obsidian_vault_atlas_export.json
