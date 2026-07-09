@@ -17,8 +17,10 @@ dependencies = [
     { name = "langchain-groq" },
     { name = "langgraph" },
     { name = "pillow" },
+    { name = "pydantic" },
     { name = "pytesseract" },
     { name = "python-dotenv" },
+    { name = "rich" },
     { name = "sentence-transformers" },
     { name = "tesseract" },
 ]
@@ -30,8 +32,10 @@ requires-dist = [
     { name = "langchain-groq", specifier = ">=1.1.3" },
     { name = "langgraph", specifier = ">=1.2.7" },
     { name = "pillow", specifier = ">=12.3.0" },
+    { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pytesseract", specifier = ">=0.3.13" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "rich", specifier = ">=15.0.0" },
     { name = "sentence-transformers", specifier = ">=5.6.0" },
     { name = "tesseract", specifier = ">=0.1.3" },
 ]

@@ -13,7 +13,8 @@ wheels/
 .env
 
 #prompt.md
-prompt.md
+context.md
+session_handoff.chat-state
 
 # Data Files
 data/
