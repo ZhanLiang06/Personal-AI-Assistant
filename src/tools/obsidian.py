@@ -5,6 +5,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import Optional, Literal
 from langchain_core.tools import tool
+from datetime import datetime
 import re
 from src.retrieval.search_notes import search_notes as _search_notes_impl
 
@@ -15,6 +16,8 @@ _FORBIDDEN_PREFIXES = ("- [", "Note:")
  
 _CHECKBOX_LINE_RE = re.compile(r"^\s*-\s\[([ xX])\]\s(.*)$")
 _NOTE_LINE_RE = re.compile(r"^Note:\s?(.*)$")
+
+
 
 # Search Notes Tool
 class SearchNotesInput(BaseModel):
@@ -285,7 +288,12 @@ def list_daily_todos(target_date: Optional[str] = None) -> str:
         f"[{i}] {'[x]' if b.checked else '[ ]'} {b.item_text} (Note: {b.note})"
         for i, b in enumerate(blocks)
     ]
-    return f"Todos for {resolved_date.isoformat()}:\n" + "\n".join(lines)
+    listed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S GMT+8")
+    return (
+        f"Todos for {resolved_date.isoformat()} "
+        f"(listed_at: {listed_at}):\n"
+        + "\n".join(lines)
+    )
 
 
 @tool("add_daily_todos", args_schema=AddDailyTodosInput)

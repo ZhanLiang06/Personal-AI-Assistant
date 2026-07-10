@@ -14,8 +14,17 @@ wheels/
 
 #prompt.md
 context.md
+agent.md
 session_handoff.chat-state
 
 # Data Files
 data/
 obsidian_vault_atlas_export.json
+
+#codex
+.agents
+.codex
+
+#uvicorn
+uvicorn.err.log
+uvicorn.out.log

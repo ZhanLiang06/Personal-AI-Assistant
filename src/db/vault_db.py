@@ -1,4 +1,7 @@
 import os
+
+os.environ["HF_HUB_OFFLINE"] = "1"
+
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -16,6 +19,7 @@ MANIFEST_PATH = DATA_DIR / "sync_manifest.json"
 COLLECTION_NAME = "obsidian_vault_atlas"
 
 EMBEDDING_MODEL_NAME = "BAAI/bge-base-en-v1.5"
+
 
 _embedder = None
 _chroma_client = None
