@@ -53,6 +53,7 @@ async function sendMessage(message) {
 
   const response = await fetch(`${API_BASE_URL}/chat/stream`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
