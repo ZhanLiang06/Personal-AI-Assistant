@@ -33,7 +33,8 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
+STATIC_DIR = WEB_DIR / "static"
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, description="User message to send to the agent.")
