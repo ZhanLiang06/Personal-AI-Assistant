@@ -21,6 +21,7 @@ ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "https://bojiakpui-xyz-student-web-app.me",
     "https://www.bojiakpui-xyz-student-web-app.me",
+    "https://personal-ai-assistant-1r2.pages.dev",
 ]
 
 app = FastAPI(title="Personal Assistance with AI Agents", description="An API for personal assistance using AI agents.")
@@ -28,7 +29,7 @@ app = FastAPI(title="Personal Assistance with AI Agents", description="An API fo
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
