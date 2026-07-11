@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.llm.langchain_agent import run_agent, stream_agent_events
+from src.logging.agent_event_log import append_agent_event
 
 load_dotenv()
 
@@ -65,6 +66,7 @@ def chat_stream(request: ChatRequest) -> StreamingResponse:
     def event_generator():
         try:
            for agent_event in stream_agent_events(request.message):
+               append_agent_event(agent_event)
                print(agent_event)
                yield _sse_event(agent_event["event"], agent_event["data"])
 

@@ -120,3 +120,41 @@ button:disabled {
 .message.assistant th {
   background: #dfe8ec;
 }
+
+.assistant-answer:not(:empty) {
+  margin-bottom: 10px;
+}
+
+.agent-trace {
+  border-top: 1px solid #c9d4da;
+  padding-top: 8px;
+  font-size: 13px;
+  color: #4e5f66;
+}
+
+.agent-trace summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.agent-trace-list {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.agent-trace-item {
+  padding-left: 10px;
+  border-left: 2px solid #9fb2ba;
+}
+
+.agent-trace-title {
+  color: #24343a;
+}
+
+.agent-trace-detail {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  font: 12px Consolas, monospace;
+  color: #506169;
+}
