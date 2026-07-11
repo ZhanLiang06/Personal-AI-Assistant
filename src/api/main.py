@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from src.llm.langchain_agent import run_agent
+from src.llm.langchain_agent import run_agent, stream_agent_events
 
 load_dotenv()
 
@@ -20,8 +20,7 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:8000",
     "https://bojiakpui-xyz-student-web-app.me",
-    "https://www.bojiakpui-xyz-student-web-app.me",
-    "https://personal-ai-assistant-1r2.pages.dev",
+    "https://www.bojiakpui-xyz-student-web-app.me"
 ]
 
 app = FastAPI(title="Personal Assistance with AI Agents", description="An API for personal assistance using AI agents.")
@@ -65,14 +64,9 @@ def chat(request: ChatRequest) -> ChatResponse:
 def chat_stream(request: ChatRequest) -> StreamingResponse:
     def event_generator():
         try:
-            yield _sse_event("status", {"code": "starting_agent"})
-            yield _sse_event("status", {"code": "running_agent"})
-
-            messages = run_agent(request.message)
-            reply = messages[-1].content
-
-            yield _sse_event("status", {"code": "agent_completed"})
-            yield _sse_event("final", {"reply": reply})
+           for agent_event in stream_agent_events(request.message):
+               print(agent_event)
+               yield _sse_event(agent_event["event"], agent_event["data"])
 
         except Exception as exc:
             yield _sse_event("error", {

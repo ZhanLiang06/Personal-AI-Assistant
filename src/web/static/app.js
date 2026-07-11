@@ -5,9 +5,11 @@ const messages = document.querySelector("#messages");
 const statusText = document.querySelector("#statusText");
 const sendButton = document.querySelector("#sendButton");
 const statusLabels = {
-  starting_agent: "Starting assistant...",
-  running_agent: "Thinking...",
-  agent_completed: "Done",
+  agent_started: "Starting assistant...",
+  agent_thinking: "Thinking...",
+  tool_call_requested: "Preparing a tool...",
+  tool_result_received: "Tool result received",
+  agent_finished: "Done",
 };
 
 function addMessage(role, text) {
@@ -84,7 +86,7 @@ async function sendMessage(message) {
 
       if (parsed.event === "status") {
         const code = parsed.data.code;
-        statusText.textContent = statusLabels[code] || code;
+        statusText.textContent = parsed.data.message || statusLabels[code] || code;
       }
 
       if (parsed.event === "final") {
