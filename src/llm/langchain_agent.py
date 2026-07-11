@@ -39,6 +39,15 @@ TOOLS = [
 ]
 
 
+def build_runtime_context() -> str:
+    current_time = format_current_time("Asia/Kuala_Lumpur")
+    return f"Runtime context: current Malaysia date/time is {current_time}."
+
+
+def build_user_content(user_question: str, runtime_context: Optional[str] = None) -> str:
+    context = runtime_context or build_runtime_context()
+    return f"{context}\n\nUser message: {user_question}"
+
 
 def build_agent():
     llm = ChatGroq(model=MODEL_NAME, temperature=0)
@@ -51,14 +60,14 @@ def build_agent():
 def run_agent(
     user_question: str,
     history: Optional[list[BaseMessage]] = None,
+    runtime_context: Optional[str] = None,
 ) -> list[BaseMessage]:
     
     agent = build_agent()
     # avoids mutating the original messages list before the agent succeeds
     new_message_list = history.copy() if history is not None else [] 
 
-    current_time = format_current_time("Asia/Kuala_Lumpur")
-    user_content = f"Runtime context: current Malaysia date/time is {current_time}.\n\nUser message: {user_question}"
+    user_content = build_user_content(user_question, runtime_context)
 
     new_message_list.append(HumanMessage(content=user_content))
     
@@ -107,6 +116,7 @@ def node_messages(node_update: Any) -> list[BaseMessage]:
 def stream_agent_events(
     user_question: str,
     history: Optional[list[BaseMessage]] = None,
+    runtime_context: Optional[str] = None,
 ) -> Iterator[dict[str, Any]]:
     
     started_at = perf_counter()
@@ -129,8 +139,7 @@ def stream_agent_events(
     # avoids mutating the original messages list before the agent succeeds
     new_message_list = history.copy() if history is not None else [] 
 
-    current_time = format_current_time("Asia/Kuala_Lumpur")
-    user_content = f"Runtime context: current Malaysia date/time is {current_time}.\n\nUser message: {user_question}"
+    user_content = build_user_content(user_question, runtime_context)
 
     new_message_list.append(HumanMessage(content=user_content))
     latest_messages: list[BaseMessage] = []
@@ -161,6 +170,7 @@ def stream_agent_events(
                     )
 
                 if tool_calls:
+                    tool_call_batch_id = getattr(last_message, "id", None) or str(uuid4())
                     for tool_call in tool_calls:
                         tool_name = tool_call.get("name", "tool")
                         tool_call_id = tool_call.get("id")
@@ -171,6 +181,7 @@ def stream_agent_events(
                             f"Planning to use tool: {tool_name}",
                             tool_name=tool_name,
                             tool_call_id=tool_call_id,
+                            tool_call_batch_id=tool_call_batch_id,
                             tool_args=tool_args,
                             run_id=run_id,
                             **timing()
@@ -196,6 +207,7 @@ def stream_agent_events(
                     f"Tool result received from {tool_name}",
                     tool_name = tool_name,
                     tool_call_id=tool_call_id,
+                    result = tool_result,
                     result_preview=tool_result_preview,
                     run_id=run_id,
                     **timing()

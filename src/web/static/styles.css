@@ -11,9 +11,49 @@ body {
 
 .app-shell {
   min-height: 100vh;
-  display: flex;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 860px);
+  gap: 16px;
   justify-content: center;
   padding: 32px 16px;
+}
+
+.conversation-sidebar {
+  min-height: calc(100vh - 64px);
+  background: #ffffff;
+  border: 1px solid #d9e1e5;
+  border-radius: 8px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+#newChatButton {
+  width: 100%;
+  min-height: 40px;
+  margin-bottom: 12px;
+}
+
+.conversation-list {
+  display: grid;
+  gap: 6px;
+  max-height: calc(100vh - 132px);
+  overflow-y: auto;
+}
+
+.conversation-item {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: #eef3f5;
+  color: #172026;
+  text-align: left;
+}
+
+.conversation-item.active {
+  background: #234b55;
+  color: #ffffff;
 }
 
 .chat-panel {
@@ -157,4 +197,18 @@ button:disabled {
   white-space: pre-wrap;
   font: 12px Consolas, monospace;
   color: #506169;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .conversation-sidebar {
+    min-height: auto;
+  }
+
+  .conversation-list {
+    max-height: 180px;
+  }
 }
