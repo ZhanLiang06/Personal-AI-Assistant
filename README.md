@@ -1,4 +1,4 @@
-# Personal AI Assistance for productivity
+# Personal AI Assistant for productivity
 
 A local-first personal AI assistant built around FastAPI, LangChain/LangGraph-style tool use, an Obsidian knowledge base, local conversation memory, SSE streaming, and Google Calendar tools.
 
