@@ -22,7 +22,12 @@ from src.tools.obsidian import (
     update_daily_todos,
     delete_daily_todos,
 )
-
+from src.tools.google_calendar import (
+    create_google_calendar_events,
+    list_google_calendar_events,
+    update_google_calendar_events,
+    delete_google_calendar_events,
+)
 load_dotenv()
 
 
@@ -32,6 +37,10 @@ MAX_AGENT_STEPS = 20
 TOOLS = [
     get_current_time,
     search_notes,
+    create_google_calendar_events,
+    list_google_calendar_events,
+    update_google_calendar_events,
+    delete_google_calendar_events,
     list_daily_todos,
     add_daily_todos,
     update_daily_todos,
