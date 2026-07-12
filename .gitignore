@@ -28,3 +28,6 @@ obsidian_vault_atlas_export.json
 #uvicorn
 uvicorn.err.log
 uvicorn.out.log
+
+#old files
+old_files/
