@@ -2,7 +2,7 @@
 
 A local-first personal AI assistant built around FastAPI, LangChain/LangGraph-style tool use, an Obsidian knowledge base, local conversation memory, SSE streaming, and Google Calendar tools.
 
-This is for my personal assistance. The project is also a learning project for AI agent fundamentals: tool calling, retrieval, memory, observability, and eventually multi-agent design. Future work includes financial trackers and richer personal productivity workflows.
+This is for my personal assistance. The project is also a learning project for AI agent fundamentals: tool calling, retrieval, memory, observability, and eventually multi-agent design. Future work includes financial trackers, telegram bot integration, advance RAG pipeline and richer personal productivity workflows.
 
 ## Current Capabilities
 
