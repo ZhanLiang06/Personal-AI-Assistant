@@ -31,7 +31,7 @@ Design (locked after discussion):
   entirely (and their chunks removed if that marker is added to a previously
   ingested note).
 
-Run: uv run ingest_vault.py
+Run: uv run python -m scripts.ingest_vault
 """
 
 import os
@@ -40,6 +40,8 @@ import json
 import hashlib
 from pathlib import Path
 from datetime import datetime, timezone
+
+os.environ["HF_HUB_OFFLINE"] = "1"
 
 from dotenv import load_dotenv
 from PIL import Image
@@ -601,51 +603,51 @@ if __name__ == "__main__":
     print(f"\nTotal chunks in collection: {collection.count()}")
 
     # inspect_note("Career/Goreal R&D Internships/<note filename>.md")
-    semantic_query("stop loss")
-    semantic_query("SMT reliability testing")
+    # semantic_query("stop loss")
+    # semantic_query("SMT reliability testing")
 
-    import json
+    # import json
 
-    # 1. Connect to your local persistent ChromaDB
+    # # 1. Connect to your local persistent ChromaDB
 
-    # 2. Define the collection you want to export
-    collection = get_collection()
+    # # 2. Define the collection you want to export
+    # collection = get_collection()
 
-    # 3. Setup pagination variables
-    limit = 100
-    offset = 0
-    all_records = []
+    # # 3. Setup pagination variables
+    # limit = 100
+    # offset = 0
+    # all_records = []
 
-    print(f"Starting export for collection: {collection.name}...")
+    # print(f"Starting export for collection: {collection.name}...")
 
-    while True:
-        # Explicitly pull only documents and metadatas (ids are always included)
-        batch = collection.get(
-            limit=limit,
-            offset=offset,
-            include=["documents", "metadatas"]
-        )
+    # while True:
+    #     # Explicitly pull only documents and metadatas (ids are always included)
+    #     batch = collection.get(
+    #         limit=limit,
+    #         offset=offset,
+    #         include=["documents", "metadatas"]
+    #     )
         
-        # Break the loop if no more records are found
-        if not batch["ids"]:
-            break
+    #     # Break the loop if no more records are found
+    #     if not batch["ids"]:
+    #         break
             
-        # Reformat the columnar response into a list of JSON-friendly objects
-        for i in range(len(batch["ids"])):
-            record = {
-                "id": batch["ids"][i],
-                "document": batch["documents"][i] if batch["documents"] else None,
-                "metadata": batch["metadatas"][i] if batch["metadatas"] else None
-            }
-            all_records.append(record)
+    #     # Reformat the columnar response into a list of JSON-friendly objects
+    #     for i in range(len(batch["ids"])):
+    #         record = {
+    #             "id": batch["ids"][i],
+    #             "document": batch["documents"][i] if batch["documents"] else None,
+    #             "metadata": batch["metadatas"][i] if batch["metadatas"] else None
+    #         }
+    #         all_records.append(record)
             
-        offset += limit
+    #     offset += limit
 
-    # 4. Save the records to a JSON file
-    output_file = f"{collection.name}_export.json"
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(all_records, f, ensure_ascii=False, indent=4)
+    # # 4. Save the records to a JSON file
+    # output_file = f"{collection.name}_export.json"
+    # with open(output_file, "w", encoding="utf-8") as f:
+    #     json.dump(all_records, f, ensure_ascii=False, indent=4)
 
-    print(f"Successfully exported {len(all_records)} records to '{output_file}'!")
+    # print(f"Successfully exported {len(all_records)} records to '{output_file}'!")
 
 
