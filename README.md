@@ -176,10 +176,3 @@ flowchart LR
 ```
 
 See `DEPLOYMENT.md` for the Cloudflare Pages, Tunnel, Access, and CORS setup.
-
-## Known Rough Edges
-
-- Temporary `rprint` debug output in `src/tools/google_calendar.py` prints raw Google Calendar payloads while testing.
-- Some ambiguous calendar update requests containing words like `deadline` may briefly touch todo tools before Calendar.
-- Conversation title naming is still basic and is a recommended next UX improvement.
-- Pending confirmation state is conversational today; a structured pending-action layer can be added later.
