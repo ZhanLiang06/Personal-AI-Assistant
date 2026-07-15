@@ -189,6 +189,10 @@ def _load_credentials() -> Credentials:
 
     if creds.expired and creds.refresh_token:
         creds.refresh(Request())
+        TOKEN_PATH.write_text(
+        creds.to_json(),
+        encoding="utf-8",
+    )
 
     if not creds.valid:
         raise RuntimeError("Google Calendar credentials are invalid. Re-run OAuth setup.")
@@ -484,9 +488,7 @@ def update_google_calendar_events(
     confirmed_by_user: bool = False,
 ) -> str:
     """
-    Update one or more Google Calendar events.
-
-    Rules:
+    Update one or more Google Calendar events smart.
     - Must use event_id + expected_title from a fresh list_google_calendar_events result.
     - Updating 1 or 2 events does not require confirmation.
     - Updating 3 or more events requires confirmed_by_user=True.

@@ -9,13 +9,14 @@ from collections.abc import Iterator
 from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain_core.messages import BaseMessage, HumanMessage
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from rich import print as rprint
 
 from uuid import uuid4
 from src.llm.prompts import SYSTEM_PROMPT
 from src.tools.general import format_current_time, get_current_time
 from src.tools.obsidian import (
+    list_vault_structure,
     search_notes,
     list_daily_todos,
     add_daily_todos,
@@ -31,11 +32,13 @@ from src.tools.google_calendar import (
 load_dotenv()
 
 
-MODEL_NAME = "openai/gpt-oss-120b"
+# MODEL_NAME = "openai/gpt-oss-120b"
+MODEL_NAME = "gemini-3.1-flash-lite"
 MAX_AGENT_STEPS = 20
 
 TOOLS = [
     get_current_time,
+    list_vault_structure,
     search_notes,
     create_google_calendar_events,
     list_google_calendar_events,
@@ -59,7 +62,7 @@ def build_user_content(user_question: str, runtime_context: Optional[str] = None
 
 
 def build_agent():
-    llm = ChatGroq(model=MODEL_NAME, temperature=0)
+    llm = ChatGoogleGenerativeAI(model=MODEL_NAME, temperature=1.0)
     return create_agent(
         model=llm,
         tools=TOOLS,
@@ -109,11 +112,7 @@ def final_event(reply: str, **extra: Any) -> dict[str, Any]:
     }
 
 def message_text(message: BaseMessage) -> str:
-    content = message.content
-    if isinstance(content, str):
-        return content
-
-    return str(content)
+    return message.text
 
 def node_messages(node_update: Any) -> list[BaseMessage]:
     if isinstance(node_update, dict) and isinstance(node_update.get("messages"), list):
@@ -162,6 +161,7 @@ def stream_agent_events(
     )
 
     for update in update_stream:
+        print(update)
         if "model" in update:
             messages = node_messages(update["model"])
             if messages:

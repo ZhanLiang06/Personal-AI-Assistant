@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from src.llm.langchain_agent import build_runtime_context, run_agent, stream_agent_events
+from src.llm.langchain_agent import build_runtime_context, run_agent, stream_agent_events, message_text
 from src.llm.conversation_context import build_conversation_context
 from src.logging.agent_event_log import append_agent_event
 
@@ -119,7 +119,7 @@ def health_check() -> dict[str, str]:
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
     message = run_agent(request.message)
-    reply = message[-1].content
+    reply = message_text(message[-1])
     return ChatResponse(reply=reply)
 
 @app.post("/chat/stream")
