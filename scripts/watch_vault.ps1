@@ -3,7 +3,12 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $EnvFile = Join-Path $ProjectRoot ".env"
 $SyncScript = Join-Path $PSScriptRoot "sync_vault.cmd"
+$TodoReconcileScript = Join-Path `
+    $PSScriptRoot `
+    "reconcile_todo_reminders.cmd"
+
 $QuietPeriod = [TimeSpan]::FromMinutes(5)
+$TodoQuietPeriod = [TimeSpan]::FromMinutes(1)
 
 
 $vaultSetting = Get-Content -LiteralPath $EnvFile |
@@ -12,12 +17,13 @@ $vaultSetting = Get-Content -LiteralPath $EnvFile |
 
 $VaultPath = ($vaultSetting -split "=", 2)[1].Trim().Trim('"').Trim("'")
 
-
 $state = [hashtable]::Synchronized(@{
-    Pending    = $false
-    LastChange = [DateTime]::MinValue
-})
+    VaultPending       = $false
+    VaultLastChange    = [DateTime]::MinValue
 
+    TodoPending        = $false
+    TodoLastChange     = [DateTime]::MinValue
+})
 
 $watcher = [System.IO.FileSystemWatcher]::new()
 
@@ -37,6 +43,7 @@ $eventContext = @{
     State     = $state
     VaultPath = $VaultPath
 }
+
 
 
 $onVaultChange = {
@@ -78,8 +85,29 @@ $onVaultChange = {
         return
     }
 
-    $watchState.LastChange = [DateTime]::Now
-    $watchState.Pending = $true
+    $now = [DateTime]::Now
+
+    $watchState.VaultLastChange = $now
+    $watchState.VaultPending = $true
+
+    $todoFolder = Join-Path $vaultRoot "Journal\to-dos"
+    $todoFolderPrefix = (
+        $todoFolder +
+        [System.IO.Path]::DirectorySeparatorChar
+    )
+
+    $isTodoFile = (
+        $extension -eq ".md" -and
+        $changedPath.StartsWith(
+            $todoFolderPrefix,
+            [System.StringComparison]::OrdinalIgnoreCase
+        )
+    )
+
+    if ($isTodoFile) {
+        $watchState.TodoLastChange = $now
+        $watchState.TodoPending = $true
+    }
 }
 
 
@@ -117,21 +145,42 @@ try {
     while ($true) {
         Start-Sleep -Seconds 5
 
-        if (-not $state.Pending) {
-            continue
+        if ($state.TodoPending) {
+            $timeSinceTodoChange = (
+                [DateTime]::Now -
+                $state.TodoLastChange
+            )
+
+            if (
+                $timeSinceTodoChange -ge
+                $TodoQuietPeriod
+            ) {
+                $state.TodoPending = $false
+
+                if (
+                    Test-Path `
+                        -LiteralPath $TodoReconcileScript
+                ) {
+                    & $TodoReconcileScript
+                }
+            }
         }
 
-        $timeSinceLastChange = (
-            [DateTime]::Now - $state.LastChange
-        )
+        if ($state.VaultPending) {
+            $timeSinceVaultChange = (
+                [DateTime]::Now -
+                $state.VaultLastChange
+            )
 
-        if ($timeSinceLastChange -lt $QuietPeriod) {
-            continue
+            if (
+                $timeSinceVaultChange -ge
+                $QuietPeriod
+            ) {
+                $state.VaultPending = $false
+
+                & $SyncScript
+            }
         }
-
-        $state.Pending = $false
-
-        & $SyncScript
     }
 }
 finally {

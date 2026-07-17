@@ -31,3 +31,6 @@ uvicorn.out.log
 
 #old files
 old_files/
+
+#test folder
+tests/
