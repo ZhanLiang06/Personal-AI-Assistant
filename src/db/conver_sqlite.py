@@ -19,6 +19,8 @@ ConversationEventType = Literal[
     "run_error",
 ]
 
+ConversationTitleSource = Literal["pending", "generated", "user"]
+
 @dataclass
 class ConversationEvent:
     id:int
@@ -48,6 +50,7 @@ class ConversationSummary:
 class Conversation:
     id: str
     title: str
+    title_source: ConversationTitleSource
     created_at: str
     updated_at: str
 
@@ -69,6 +72,7 @@ def init_conversation_db() -> None:
             CREATE TABLE IF NOT EXISTS conversations (
                 id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
+                title_source TEXT NOT NULL DEFAULT 'pending',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -115,26 +119,71 @@ def init_conversation_db() -> None:
         )
         _ensure_column(
             connection,
+            table_name="conversations",
+            column_name="title_source",
+            column_definition="TEXT NOT NULL DEFAULT 'pending'",
+        )
+        _ensure_column(
+            connection,
             table_name="conversation_events",
             column_name="runtime_context",
             column_definition="TEXT",
         )
 
 
-def create_conversation(title: str = "New conversation") -> str:
+def create_conversation(
+    title: str = "New conversation",
+    title_source: ConversationTitleSource = "pending",
+) -> str:
     conversation_id = str(uuid4())
     now = utc_now()
 
     with connect() as connection:
         connection.execute(
             """
-            INSERT INTO conversations (id, title, created_at, updated_at)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO conversations (id, title, title_source, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (conversation_id, title, now, now),
+            (conversation_id, title, title_source, now, now),
         )
 
     return conversation_id
+
+
+def update_generated_conversation_title(
+    conversation_id: str,
+    title: str,
+) -> bool:
+    """Set an automatic title only while title generation still owns the field."""
+    with connect() as connection:
+        cursor = connection.execute(
+            """
+            UPDATE conversations
+            SET title = ?, title_source = 'generated'
+            WHERE id = ? AND title_source = 'pending'
+            """,
+            (title, conversation_id),
+        )
+
+    return cursor.rowcount == 1
+
+
+def set_user_conversation_title(
+    conversation_id: str,
+    title: str,
+) -> bool:
+    """Save a user title and permanently give manual editing precedence."""
+    with connect() as connection:
+        cursor = connection.execute(
+            """
+            UPDATE conversations
+            SET title = ?, title_source = 'user'
+            WHERE id = ?
+            """,
+            (title, conversation_id),
+        )
+
+    return cursor.rowcount == 1
 
 def add_conversation_event(
     conversation_id: str,
@@ -312,7 +361,7 @@ def get_conversation(conversation_id: str) -> Conversation | None:
     with connect() as connection:
         row = connection.execute(
             """
-            SELECT id, title, created_at, updated_at
+            SELECT id, title, title_source, created_at, updated_at
             FROM conversations
             WHERE id = ?
             """,
@@ -325,6 +374,7 @@ def get_conversation(conversation_id: str) -> Conversation | None:
     return Conversation(
         id=row["id"],
         title=row["title"],
+        title_source=row["title_source"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -412,7 +462,7 @@ def list_conversations() -> list[Conversation]:
     with connect() as connection:
         rows = connection.execute(
             """
-            SELECT id, title, created_at, updated_at
+            SELECT id, title, title_source, created_at, updated_at
             FROM conversations
             ORDER BY updated_at DESC
             """
@@ -422,6 +472,7 @@ def list_conversations() -> list[Conversation]:
         Conversation(
             id=row["id"],
             title=row["title"],
+            title_source=row["title_source"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )

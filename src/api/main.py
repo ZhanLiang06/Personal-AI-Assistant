@@ -1,4 +1,5 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 from rich import print as rprint
@@ -12,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from src.llm.langchain_agent import build_runtime_context, run_agent, stream_agent_events, message_text
 from src.llm.conversation_context import build_conversation_context
+from src.llm.conversation_title import generate_conversation_title
 from src.logging.agent_event_log import append_agent_event
 
 from src.db.conver_sqlite import (
@@ -26,6 +28,8 @@ from src.db.conver_sqlite import (
     add_run_error,
     list_conversations,
     get_conversation_events,
+    set_user_conversation_title,
+    update_generated_conversation_title,
 )
 
 load_dotenv()
@@ -41,12 +45,13 @@ ALLOWED_ORIGINS = [
 ]
 
 app = FastAPI(title="Personal Assistance with AI Agents", description="An API for personal assistance using AI agents.")
+TITLE_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="conversation-title")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["Content-Type"],
 )
 
@@ -65,9 +70,18 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
 
+
+class ConversationTitleUpdateRequest(BaseModel):
+    title: str = Field(
+        min_length=1,
+        max_length=80,
+        description="User-selected conversation title.",
+    )
+
 class ConversationResponse(BaseModel):
     id: str
     title: str
+    title_source: str
     created_at: str
     updated_at: str
 
@@ -91,7 +105,9 @@ class ConversationDetailResponse(BaseModel):
     conversation: ConversationResponse
     events: list[ConversationEventResponse]
 
-def _resolve_conversation_id(requested_conversation_id: str | None) -> tuple[str, bool]:
+def _resolve_conversation_id(
+    requested_conversation_id: str | None,
+) -> tuple[str, bool]:
     if requested_conversation_id is None:
         return create_conversation(), True
 
@@ -103,6 +119,17 @@ def _resolve_conversation_id(requested_conversation_id: str | None) -> tuple[str
         )
 
     return requested_conversation_id, False
+
+
+def _generate_and_store_conversation_title(
+    conversation_id: str,
+    first_user_message: str,
+) -> str | None:
+    generated_title = generate_conversation_title(first_user_message)
+    if update_generated_conversation_title(conversation_id, generated_title):
+        return generated_title
+
+    return None
 
 def _sse_event(event: str, data: dict[str, Any]) -> str:
     payload = json.dumps(data, ensure_ascii=False)
@@ -124,13 +151,16 @@ def chat(request: ChatRequest) -> ChatResponse:
 
 @app.post("/chat/stream")
 def chat_stream(request: ChatRequest) -> StreamingResponse:
-    conversation_id, created_new_conversation = _resolve_conversation_id(request.conversation_id)
+    conversation_id, created_new_conversation = _resolve_conversation_id(
+        request.conversation_id,
+    )
     
     def event_generator():
         stored_tool_event = False
         final_reply: str | None = None
         latest_run_id: str | None = None
         tool_call_batch_by_id: dict[str, str] = {}
+        title_future = None
 
         try:
             runtime_context = build_runtime_context()
@@ -141,6 +171,13 @@ def chat_stream(request: ChatRequest) -> StreamingResponse:
                 request.message,
                 runtime_context=runtime_context,
             )
+
+            if created_new_conversation:
+                title_future = TITLE_EXECUTOR.submit(
+                    _generate_and_store_conversation_title,
+                    conversation_id,
+                    request.message,
+                )
 
             yield _sse_event("status", {
                 "code": "conversation_ready",
@@ -177,13 +214,29 @@ def chat_stream(request: ChatRequest) -> StreamingResponse:
                     run_id=latest_run_id,
                 )
 
-
         except Exception as exc:
             yield _sse_event("error", {
                     "message": "agent_run_failed",
                     "detail": str(exc),
                 },)
             add_run_error(conversation_id, str(exc),run_id=latest_run_id)
+
+        if title_future is not None:
+            try:
+                title = title_future.result()
+            except Exception as title_error:
+                rprint(
+                    "[yellow]Conversation title generation failed:[/yellow] "
+                    f"{type(title_error).__name__}"
+                )
+            else:
+                if title is not None:
+                    yield _sse_event("status", {
+                        "code": "conversation_title_updated",
+                        "message": "Conversation title updated",
+                        "conversation_id": conversation_id,
+                        "title": title,
+                    })
             
     return StreamingResponse(
         event_generator(), 
@@ -200,6 +253,7 @@ def conversations() -> list[ConversationResponse]:
         ConversationResponse(
             id=conversation.id,
             title=conversation.title,
+            title_source=conversation.title_source,
             created_at=conversation.created_at,
             updated_at=conversation.updated_at,
         )
@@ -221,6 +275,7 @@ def conversation_detail(conversation_id: str) -> ConversationDetailResponse:
         conversation=ConversationResponse(
             id=conversation.id,
             title=conversation.title,
+            title_source=conversation.title_source,
             created_at=conversation.created_at,
             updated_at=conversation.updated_at,
         ),
@@ -241,6 +296,31 @@ def conversation_detail(conversation_id: str) -> ConversationDetailResponse:
             )
             for event in events
         ],
+    )
+
+
+@app.patch("/conversations/{conversation_id}/title", response_model=ConversationResponse)
+def update_conversation_title(
+    conversation_id: str,
+    request: ConversationTitleUpdateRequest,
+) -> ConversationResponse:
+    title = " ".join(request.title.split())
+    if not title:
+        raise HTTPException(status_code=422, detail="Conversation title cannot be empty.")
+
+    if not set_user_conversation_title(conversation_id, title):
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+
+    return ConversationResponse(
+        id=conversation.id,
+        title=conversation.title,
+        title_source=conversation.title_source,
+        created_at=conversation.created_at,
+        updated_at=conversation.updated_at,
     )
 
 def _add_conversation_event_to_db(

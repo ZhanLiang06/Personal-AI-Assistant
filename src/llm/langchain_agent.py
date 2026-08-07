@@ -2,7 +2,7 @@
 import os
 from time import perf_counter
 
-os.environ["HF_HUB_OFFLINE"] = "1"
+# os.environ["HF_HUB_OFFLINE"] = "1"
 
 from typing import Optional, Any
 from collections.abc import Iterator
@@ -35,7 +35,7 @@ load_dotenv()
 
 
 # MODEL_NAME = "openai/gpt-oss-120b"
-MODEL_NAME = "gemini-3.1-flash-lite"
+MODEL_NAME = "gemini-3.5-flash-lite"
 MAX_AGENT_STEPS = 20
 
 TOOLS = [

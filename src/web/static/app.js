@@ -1,5 +1,6 @@
 const API_BASE_URL = window.APP_CONFIG?.API_BASE_URL || "";
 let currentConversationId = null;
+let renamingConversationId = null;
 
 const form = document.querySelector("#chatForm");
 const input = document.querySelector("#messageInput");
@@ -8,6 +9,21 @@ const statusText = document.querySelector("#statusText");
 const sendButton = document.querySelector("#sendButton");
 const conversationList = document.querySelector("#conversationList");
 const newChatButton = document.querySelector("#newChatButton");
+const conversationSidebar = document.querySelector("#conversationSidebar");
+const openSidebarButton = document.querySelector("#openSidebarButton");
+const closeSidebarButton = document.querySelector("#closeSidebarButton");
+const sidebarBackdrop = document.querySelector("#sidebarBackdrop");
+const brandButtons = document.querySelectorAll("[data-brand-choice]");
+const modeToggle = document.querySelector("#modeToggle");
+const modeIcon = document.querySelector("#modeIcon");
+const modeLabel = document.querySelector("#modeLabel");
+const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+const mobileLayout = window.matchMedia("(max-width: 760px)");
+
+const BRAND_STORAGE_KEY = "personal-assistant-brand";
+const MODE_STORAGE_KEY = "personal-assistant-mode";
+const BRANDS = new Set(["mercedes", "ferrari"]);
+const MODES = new Set(["light", "dark"]);
 
 const statusLabels = {
   agent_started: "Starting assistant...",
@@ -17,13 +33,130 @@ const statusLabels = {
   tool_result_received: "Tool result received",
   agent_finished: "Done",
   conversation_ready: "Conversation ready",
+  conversation_title_updated: "Conversation titled",
   run_error: "Run stopped",
 };
 
 const hiddenTraceCodes = new Set([
   "conversation_ready",
   "assistant_response_ready",
+  "conversation_title_updated",
 ]);
+
+function applyAppearance(brand, mode) {
+  const nextBrand = BRANDS.has(brand) ? brand : "mercedes";
+  const nextMode = MODES.has(mode) ? mode : "light";
+  const isDark = nextMode === "dark";
+
+  document.documentElement.dataset.brand = nextBrand;
+  document.documentElement.dataset.mode = nextMode;
+
+  for (const button of brandButtons) {
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.brandChoice === nextBrand),
+    );
+  }
+
+  modeToggle.setAttribute("aria-pressed", String(isDark));
+  modeToggle.setAttribute(
+    "aria-label",
+    isDark ? "Switch to light mode" : "Switch to dark mode",
+  );
+  modeIcon.textContent = isDark ? "☾" : "☀";
+  modeLabel.textContent = isDark ? "Dark" : "Light";
+
+  const themeColors = {
+    "mercedes-light": "#f3f5f5",
+    "mercedes-dark": "#0b0f10",
+    "ferrari-light": "#f6f3ef",
+    "ferrari-dark": "#110e0d",
+  };
+  themeColorMeta.setAttribute("content", themeColors[`${nextBrand}-${nextMode}`]);
+
+  try {
+    localStorage.setItem(BRAND_STORAGE_KEY, nextBrand);
+    localStorage.setItem(MODE_STORAGE_KEY, nextMode);
+  } catch {
+    // The selected appearance still applies when browser storage is unavailable.
+  }
+}
+
+function setConversationDrawer(isOpen, restoreFocus = false) {
+  const shouldOpen = isOpen && mobileLayout.matches;
+  conversationSidebar.classList.toggle("is-open", shouldOpen);
+  sidebarBackdrop.classList.toggle("is-visible", shouldOpen);
+  openSidebarButton.setAttribute("aria-expanded", String(shouldOpen));
+
+  if (shouldOpen) {
+    closeSidebarButton.focus();
+  } else if (restoreFocus && mobileLayout.matches) {
+    openSidebarButton.focus();
+  }
+}
+
+function resizeMessageInput() {
+  input.style.height = "auto";
+  input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
+}
+
+function clearWelcomeState() {
+  document.querySelector("#welcomeState")?.remove();
+}
+
+function renderWelcomeState() {
+  messages.innerHTML = `
+    <div id="welcomeState" class="welcome-state">
+      <span class="welcome-mark" aria-hidden="true">AI</span>
+      <h2>How can I help?</h2>
+      <p>Ask about your notes, schedule, todos, or anything you are working through.</p>
+    </div>
+  `;
+}
+
+applyAppearance(
+  document.documentElement.dataset.brand,
+  document.documentElement.dataset.mode,
+);
+
+for (const button of brandButtons) {
+  button.addEventListener("click", () => {
+    applyAppearance(
+      button.dataset.brandChoice,
+      document.documentElement.dataset.mode,
+    );
+  });
+}
+
+modeToggle.addEventListener("click", () => {
+  const nextMode = document.documentElement.dataset.mode === "dark" ? "light" : "dark";
+  applyAppearance(document.documentElement.dataset.brand, nextMode);
+});
+
+openSidebarButton.addEventListener("click", () => setConversationDrawer(true));
+closeSidebarButton.addEventListener("click", () => setConversationDrawer(false, true));
+sidebarBackdrop.addEventListener("click", () => setConversationDrawer(false, true));
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && conversationSidebar.classList.contains("is-open")) {
+    setConversationDrawer(false, true);
+  }
+});
+
+mobileLayout.addEventListener("change", () => setConversationDrawer(false));
+
+input.addEventListener("input", resizeMessageInput);
+input.addEventListener("keydown", (event) => {
+  if (
+    event.key === "Enter"
+    && !event.shiftKey
+    && !event.isComposing
+    && !sendButton.disabled
+  ) {
+    event.preventDefault();
+    form.requestSubmit();
+  }
+});
 
 
 function renderMarkdown(target, text) {
@@ -32,6 +165,7 @@ function renderMarkdown(target, text) {
 }
 
 function addMessage(role, text = "") {
+  clearWelcomeState();
   const message = document.createElement("div");
   message.className = `message ${role}`;
 
@@ -47,6 +181,7 @@ function addMessage(role, text = "") {
 }
 
 function createAssistantRunMessage() {
+  clearWelcomeState();
   const message = document.createElement("div");
   message.className = "message assistant";
 
@@ -56,6 +191,7 @@ function createAssistantRunMessage() {
   const details = document.createElement("details");
   details.className = "agent-trace";
   details.open = true;
+  details.hidden = true;
 
   const summary = document.createElement("summary");
   summary.textContent = "View process";
@@ -105,6 +241,8 @@ function appendTraceEvent(traceList, data) {
   }
 
   traceList.appendChild(item);
+  const details = traceList.closest(".agent-trace");
+  if (details) details.hidden = false;
   messages.scrollTop = messages.scrollHeight;
 }
 
@@ -171,11 +309,19 @@ async function sendMessage(message) {
 
       if (parsed.event === "status") {
         const code = parsed.data.code;
-        statusText.textContent = parsed.data.message || statusLabels[code] || code;
+        if (code !== "conversation_title_updated") {
+          statusText.textContent = parsed.data.message || statusLabels[code] || code;
+        }
 
         if (code === "conversation_ready") {
           currentConversationId = parsed.data.conversation_id;
           await loadConversations();
+        }
+
+        if (code === "conversation_title_updated") {
+          if (parsed.data.conversation_id !== renamingConversationId) {
+            await loadConversations();
+          }
         }
 
         if (!hiddenTraceCodes.has(code)) {
@@ -207,10 +353,13 @@ async function sendMessage(message) {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
+  if (sendButton.disabled) return;
+
   const message = input.value.trim();
   if (!message) return;
 
   input.value = "";
+  resizeMessageInput();
 
   try {
     await sendMessage(message);
@@ -222,8 +371,9 @@ form.addEventListener("submit", async (event) => {
 });
 
 newChatButton.addEventListener("click", async () => {
+  setConversationDrawer(false, true);
   currentConversationId = null;
-  messages.innerHTML = "";
+  renderWelcomeState();
   statusText.textContent = "Ready";
   await loadConversations();
 });
@@ -233,12 +383,23 @@ async function loadConversations() {
     credentials: "include",
   });
 
-  if (!response.ok) return;
+  if (!response.ok) return [];
 
   const conversations = await response.json();
   conversationList.innerHTML = "";
 
+  if (conversations.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "conversation-empty";
+    empty.textContent = "Your conversations will appear here.";
+    conversationList.appendChild(empty);
+    return conversations;
+  }
+
   for (const conversation of conversations) {
+    const row = document.createElement("div");
+    row.className = "conversation-row";
+
     const button = document.createElement("button");
     button.type = "button";
     button.className = "conversation-item";
@@ -247,12 +408,108 @@ async function loadConversations() {
     }
 
     button.textContent = conversation.title || "New conversation";
+    button.title = button.textContent;
     button.addEventListener("click", () => openConversation(conversation.id));
-    conversationList.appendChild(button);
+
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "conversation-edit-button";
+    editButton.setAttribute("aria-label", `Rename ${button.textContent}`);
+    editButton.title = "Rename conversation";
+    editButton.textContent = "\u270E";
+    editButton.addEventListener("click", () => {
+      startConversationRename(row, conversation);
+    });
+
+    row.appendChild(button);
+    row.appendChild(editButton);
+    conversationList.appendChild(row);
   }
+
+  return conversations;
+}
+
+function startConversationRename(row, conversation) {
+  renamingConversationId = conversation.id;
+  const renameForm = document.createElement("form");
+  renameForm.className = "conversation-rename-form";
+
+  const titleInput = document.createElement("input");
+  titleInput.className = "conversation-title-input";
+  titleInput.type = "text";
+  titleInput.value = conversation.title || "";
+  titleInput.maxLength = 80;
+  titleInput.required = true;
+  titleInput.setAttribute("aria-label", "Conversation title");
+
+  const saveButton = document.createElement("button");
+  saveButton.className = "conversation-rename-action save";
+  saveButton.type = "submit";
+  saveButton.textContent = "Save";
+
+  const cancelButton = document.createElement("button");
+  cancelButton.className = "conversation-rename-action";
+  cancelButton.type = "button";
+  cancelButton.textContent = "Cancel";
+  cancelButton.addEventListener("click", () => {
+    renamingConversationId = null;
+    loadConversations();
+  });
+
+  titleInput.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      renamingConversationId = null;
+      loadConversations();
+    }
+  });
+
+  renameForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const title = titleInput.value.trim();
+    if (!title) return;
+
+    saveButton.disabled = true;
+    let response;
+    try {
+      response = await fetch(
+        `${API_BASE_URL}/conversations/${conversation.id}/title`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ title }),
+        },
+      );
+    } catch {
+      statusText.textContent = "Could not rename conversation";
+      saveButton.disabled = false;
+      return;
+    }
+
+    if (!response.ok) {
+      statusText.textContent = "Could not rename conversation";
+      saveButton.disabled = false;
+      return;
+    }
+
+    statusText.textContent = "Ready";
+    renamingConversationId = null;
+    await loadConversations();
+  });
+
+  renameForm.appendChild(titleInput);
+  renameForm.appendChild(saveButton);
+  renameForm.appendChild(cancelButton);
+  row.replaceChildren(renameForm);
+  titleInput.focus();
+  titleInput.select();
 }
 
 async function openConversation(conversationId) {
+  setConversationDrawer(false, true);
   const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}`, {
     credentials: "include",
   });

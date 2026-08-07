@@ -41,7 +41,7 @@ import hashlib
 from pathlib import Path
 from datetime import datetime, timezone
 
-os.environ["HF_HUB_OFFLINE"] = "1"
+# os.environ["HF_HUB_OFFLINE"] = "1"
 
 from dotenv import load_dotenv
 from PIL import Image
