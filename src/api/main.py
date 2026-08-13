@@ -11,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from src.api.finance import router as finance_router
+from src.db.finance_sqlite import init_finance_db
 from src.llm.langchain_agent import build_runtime_context, run_agent, stream_agent_events, message_text
 from src.llm.conversation_context import build_conversation_context
 from src.llm.conversation_title import generate_conversation_title
@@ -51,7 +53,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH"],
+    # PUT and DELETE are needed by the finance dashboard's CRUD calls.
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
     allow_headers=["Content-Type"],
 )
 
@@ -59,6 +62,12 @@ STATIC_DIR = WEB_DIR / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 init_conversation_db()
+
+# Creates the finance schema on a fresh machine and applies any pending
+# migration on an existing one. Idempotent, so it is safe on every boot.
+init_finance_db()
+
+app.include_router(finance_router)
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, description="User message to send to the agent.")
@@ -138,6 +147,10 @@ def _sse_event(event: str, data: dict[str, Any]) -> str:
 @app.get("/")
 def web_app() -> FileResponse:
     return FileResponse(WEB_DIR / "index.html")
+
+@app.get("/finance")
+def finance_app() -> FileResponse:
+    return FileResponse(WEB_DIR / "finance.html")
 
 @app.get("/health")
 def health_check() -> dict[str, str]:

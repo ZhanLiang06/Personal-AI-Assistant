@@ -209,7 +209,7 @@ def summarize(
     period_start: date,
     period_end: date,
     fill_empty_days: bool = True,
-    db_path: str | Path = FINANCE_DB_PATH,
+    db_path: str | Path | None = None,
 ) -> PeriodSummary:
     """
     Aggregate one inclusive date range into a `PeriodSummary`.
@@ -377,7 +377,7 @@ def week_bounds(any_date_in_week: date) -> tuple[date, date]:
 def month_summary(
     year: int,
     month: int,
-    db_path: str | Path = FINANCE_DB_PATH,
+    db_path: str | Path | None = None,
 ) -> PeriodSummary:
     """Summarize one calendar month."""
     start, end = month_bounds(year, month)
@@ -387,7 +387,7 @@ def month_summary(
 
 def week_summary(
     any_date_in_week: date,
-    db_path: str | Path = FINANCE_DB_PATH,
+    db_path: str | Path | None = None,
 ) -> PeriodSummary:
     """Summarize the Monday-to-Sunday week containing a date."""
     start, end = week_bounds(any_date_in_week)
@@ -396,7 +396,7 @@ def week_summary(
 
 
 def transaction_date_range(
-    db_path: str | Path = FINANCE_DB_PATH,
+    db_path: str | Path | None = None,
 ) -> tuple[date, date] | None:
     """
     Return the first and last local day that has a live transaction.
@@ -421,7 +421,7 @@ def transaction_date_range(
 
 
 def all_time_summary(
-    db_path: str | Path = FINANCE_DB_PATH,
+    db_path: str | Path | None = None,
 ) -> PeriodSummary | None:
     """Summarize every live transaction, or None when there are none."""
     bounds = transaction_date_range(db_path)
@@ -446,7 +446,7 @@ def compare(current: PeriodSummary, previous: PeriodSummary) -> PeriodComparison
 def compare_to_previous_period(
     period_start: date,
     period_end: date,
-    db_path: str | Path = FINANCE_DB_PATH,
+    db_path: str | Path | None = None,
 ) -> PeriodComparison:
     """
     Compare a range against the equally long range ending just before it.
@@ -472,7 +472,7 @@ def compare_to_previous_period(
 def month_over_month(
     year: int,
     month: int,
-    db_path: str | Path = FINANCE_DB_PATH,
+    db_path: str | Path | None = None,
 ) -> PeriodComparison:
     """Compare a calendar month against the calendar month before it."""
     previous_year, previous_month = (

@@ -1,0 +1,701 @@
+/*
+ * Finance dashboard styling.
+ *
+ * Loaded after styles.css and reuses its theme tokens (--surface,
+ * --accent, --border, ...), so the Mercedes/Ferrari and light/dark
+ * combinations apply here with no second palette to maintain.
+ *
+ * Chart colour policy: both charts show a single measure, so they use
+ * one hue (the brand accent) with direct labels rather than a
+ * categorical palette. Categories are identified by their own labels,
+ * never by colour alone. Budget states use the reserved status colours
+ * below and always ship a text label beside the colour.
+ */
+
+body.finance-body {
+  /* The chat shell locks scrolling; a dashboard needs to scroll. */
+  overflow: auto;
+  height: auto;
+  min-height: 100%;
+
+  --good: #1f8f5f;
+  --warning: #a06a00;
+  --critical: #c0392b;
+  --good-soft: rgba(31, 143, 95, 0.14);
+  --warning-soft: rgba(160, 106, 0, 0.16);
+  --critical-soft: rgba(192, 57, 43, 0.14);
+}
+
+html[data-mode="dark"] body.finance-body {
+  /* Dark steps are chosen against the dark surface, not flipped. */
+  --good: #45c98c;
+  --warning: #d9a441;
+  --critical: #f0736a;
+  --good-soft: rgba(69, 201, 140, 0.18);
+  --warning-soft: rgba(217, 164, 65, 0.18);
+  --critical-soft: rgba(240, 115, 106, 0.18);
+}
+
+/* A CSS `display` beats the `hidden` attribute, so any element this
+   sheet lays out would ignore `hidden` without this. */
+[hidden] {
+  display: none !important;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.finance-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  /* Wide content scrolls inside its own container; the page itself must
+     never scroll sideways. */
+  overflow-x: hidden;
+}
+
+/* --- Header ------------------------------------------------------- */
+
+.finance-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.finance-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.finance-title h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 1.1rem;
+  box-shadow: var(--control-shadow);
+}
+
+.back-link:hover {
+  background: var(--surface-hover);
+}
+
+.finance-header-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.month-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.month-input {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  padding: 4px 6px;
+}
+
+.month-input:focus-visible {
+  outline: 2px solid var(--focus);
+  border-radius: 6px;
+}
+
+.error-banner {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--critical);
+  background: var(--critical-soft);
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+/* --- Layout ------------------------------------------------------- */
+
+.finance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: var(--control-shadow);
+}
+
+.stat-row,
+.explain-card,
+.manager-card,
+.table-card,
+.chart-card:first-of-type {
+  grid-column: 1 / -1;
+}
+
+/* --- Category manager --------------------------------------------- */
+
+.category-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.manager-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border-radius: 10px;
+}
+
+.manager-row:hover {
+  background: var(--surface-hover);
+}
+
+.manager-row.is-child {
+  padding-left: 26px;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.manager-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manager-code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.manager-actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+/* The inline edit form replaces the row in place, so the list does not
+   jump while a name is being corrected. */
+.manager-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.manager-edit input {
+  padding: 6px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  min-width: 0;
+}
+
+.manager-edit input.name-input {
+  flex: 1 1 180px;
+}
+
+.manager-edit input.emoji-input {
+  flex: 0 0 72px;
+  text-align: center;
+}
+
+.manager-edit input.amount-input {
+  flex: 0 0 110px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.manager-edit input.note-input {
+  flex: 1 1 200px;
+}
+
+.manager-warning {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--warning);
+}
+
+.explain-text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--text);
+  max-width: 70ch;
+}
+
+.explain-text.is-placeholder,
+.explain-text.is-pending {
+  color: var(--muted);
+}
+
+/* Shown when the model was unavailable and the panel is displaying the
+   raw figures instead of prose. */
+.explain-figures {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.table-card {
+  grid-column: 1 / -1;
+}
+
+.card-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.card-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.card-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* --- Stat tiles --------------------------------------------------- */
+
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.stat-value {
+  font-size: 1.6rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-delta {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+/* Direction is stated in the text too, so colour is never the only
+   signal that spending rose or fell. */
+.stat-delta.is-up { color: var(--critical); }
+.stat-delta.is-down { color: var(--good); }
+
+/* --- Daily chart -------------------------------------------------- */
+
+.chart {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.chart svg {
+  display: block;
+  width: 100%;
+  height: 180px;
+}
+
+.chart .bar {
+  fill: var(--accent);
+  /* 4px rounded data-end, anchored to the baseline. */
+  rx: 3;
+}
+
+.chart .bar.is-empty {
+  fill: var(--border);
+}
+
+.chart .bar:hover {
+  fill: var(--accent-strong);
+}
+
+.chart .axis-line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart .axis-label {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.chart-tooltip {
+  position: fixed;
+  z-index: 20;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-size: 0.82rem;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* --- Category bars ------------------------------------------------ */
+
+.category-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.category-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.category-row:hover,
+.category-row.is-active {
+  background: var(--surface-hover);
+}
+
+.category-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+.category-amount {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.category-track {
+  display: block;
+  grid-column: 1 / -1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.category-fill {
+  /* Must be a block: `width` has no effect on an inline span. */
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+}
+
+/* --- Budgets ------------------------------------------------------ */
+
+.budget-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.budget-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  align-items: center;
+}
+
+.budget-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.budget-numbers {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.budget-track {
+  display: block;
+  grid-column: 1 / -1;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.budget-fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--good);
+}
+
+.budget-fill.is-warning { background: var(--warning); }
+.budget-fill.is-over { background: var(--critical); }
+
+.budget-state {
+  grid-column: 1 / -1;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.budget-state.is-good { color: var(--good); }
+.budget-state.is-warning { color: var(--warning); }
+.budget-state.is-over { color: var(--critical); }
+
+/* --- Forms -------------------------------------------------------- */
+
+.inline-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.inline-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  min-width: 0;
+}
+
+.inline-form label.wide {
+  grid-column: 1 / -1;
+}
+
+.inline-form input,
+.inline-form select {
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  min-width: 0;
+}
+
+.inline-form input:focus-visible,
+.inline-form select:focus-visible {
+  outline: 2px solid var(--focus);
+  border-color: var(--accent);
+}
+
+.inline-form-actions {
+  display: flex;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.primary-button {
+  padding: 9px 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-button:hover { background: var(--accent-strong); }
+.primary-button:disabled { opacity: 0.55; cursor: progress; }
+
+.ghost-button {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ghost-button:hover { background: var(--surface-hover); }
+
+/* --- Table -------------------------------------------------------- */
+
+.table-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.table-controls input,
+.table-controls select {
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.transaction-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.transaction-table th,
+.transaction-table td {
+  padding: 9px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.transaction-table th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.transaction-table td.numeric,
+.transaction-table th.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.transaction-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+.transaction-code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.transaction-note {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.row-button {
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.row-button:hover { background: var(--surface-hover); }
+.row-button.is-danger { color: var(--critical); border-color: var(--critical); }
+
+.direction-income {
+  color: var(--good);
+  font-weight: 600;
+}
+
+/* --- Responsive --------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .finance-grid { grid-template-columns: minmax(0, 1fr); }
+  .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .finance-shell { padding: 16px 12px 48px; }
+  .stat-row { grid-template-columns: minmax(0, 1fr); }
+  .finance-header { align-items: flex-start; }
+}

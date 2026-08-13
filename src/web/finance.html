@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en" data-brand="mercedes" data-mode="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f3f5f5" />
+  <title>Finance &middot; Personal AI Assistant</title>
+  <script>
+    // Applied before first paint so the page never flashes the wrong
+    // theme. Same keys as the chat shell, so the two stay in step.
+    try {
+      const savedBrand = localStorage.getItem("personal-assistant-brand")
+        || localStorage.getItem("personal-assistant-theme");
+      const savedMode = localStorage.getItem("personal-assistant-mode");
+
+      if (savedBrand === "mercedes" || savedBrand === "ferrari") {
+        document.documentElement.dataset.brand = savedBrand;
+      }
+      if (savedMode === "light" || savedMode === "dark") {
+        document.documentElement.dataset.mode = savedMode;
+      }
+    } catch {
+      // Use the default Mercedes light theme when storage is unavailable.
+    }
+  </script>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/finance.css" />
+</head>
+<body class="finance-body">
+  <div class="finance-shell">
+    <header class="finance-header">
+      <div class="finance-title">
+        <a class="back-link" href="/" aria-label="Back to chat">&larr;</a>
+        <div class="header-copy">
+          <h1>Finance</h1>
+          <p class="status" aria-live="polite">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="statusText">Loading</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="finance-header-controls">
+        <div class="month-picker">
+          <button id="previousMonth" class="icon-button" type="button" aria-label="Previous month">&lsaquo;</button>
+          <input id="monthInput" class="month-input" type="month" aria-label="Month" />
+          <button id="nextMonth" class="icon-button" type="button" aria-label="Next month">&rsaquo;</button>
+        </div>
+
+        <div class="theme-controls">
+          <div class="brand-switcher" role="group" aria-label="Brand theme">
+            <button class="brand-button" type="button" data-brand-choice="mercedes" aria-pressed="true">Mercedes</button>
+            <button class="brand-button" type="button" data-brand-choice="ferrari" aria-pressed="false">Ferrari</button>
+          </div>
+          <button id="modeToggle" class="mode-toggle" type="button" aria-pressed="false" aria-label="Switch to dark mode">
+            <span id="modeIcon" class="mode-icon" aria-hidden="true">&#9728;</span>
+            <span id="modeLabel">Light</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <p id="errorBanner" class="error-banner" role="alert" hidden></p>
+
+    <div class="finance-grid">
+      <!-- Headline numbers. A stat tile, not a chart: one number each,
+           and the job is the value itself. -->
+      <section class="card stat-row" aria-label="Month totals">
+        <div class="stat">
+          <span class="stat-label">Expense</span>
+          <strong id="statExpense" class="stat-value">&mdash;</strong>
+          <span id="statExpenseDelta" class="stat-delta"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Income</span>
+          <strong id="statIncome" class="stat-value">&mdash;</strong>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Net</span>
+          <strong id="statNet" class="stat-value">&mdash;</strong>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Average per day</span>
+          <strong id="statAverage" class="stat-value">&mdash;</strong>
+          <span id="statCount" class="stat-delta"></span>
+        </div>
+      </section>
+
+      <section class="card explain-card" aria-labelledby="explainHeading">
+        <div class="card-header">
+          <h2 id="explainHeading">What happened this month</h2>
+          <button id="explainButton" class="ghost-button" type="button">Explain this period</button>
+        </div>
+        <p id="explainText" class="explain-text">
+          The numbers above are always current. Press the button for a short written summary of them.
+        </p>
+      </section>
+
+      <section class="card chart-card" aria-labelledby="dailyHeading">
+        <div class="card-header">
+          <h2 id="dailyHeading">Daily spend</h2>
+          <p class="card-note">Every day of the month, including days with nothing recorded.</p>
+        </div>
+        <div id="dailyChart" class="chart" role="img" aria-label="Daily spending"></div>
+        <div id="dailyTooltip" class="chart-tooltip" hidden></div>
+      </section>
+
+      <section class="card chart-card" aria-labelledby="categoryHeading">
+        <div class="card-header">
+          <h2 id="categoryHeading">By category</h2>
+          <p class="card-note">Ranked by spend. Click a row to filter the table.</p>
+        </div>
+        <div id="categoryChart" class="category-chart"></div>
+      </section>
+
+      <section class="card" aria-labelledby="budgetHeading">
+        <div class="card-header">
+          <h2 id="budgetHeading">Budgets</h2>
+          <button id="addBudgetButton" class="ghost-button" type="button">Set a budget</button>
+        </div>
+        <div id="budgetList" class="budget-list"></div>
+        <form id="budgetForm" class="inline-form" hidden>
+          <label>
+            <span>Category</span>
+            <select id="budgetCategory" required></select>
+          </label>
+          <label>
+            <span>Monthly limit (MYR)</span>
+            <input id="budgetLimit" type="text" inputmode="decimal" placeholder="200.00" required />
+          </label>
+          <div class="inline-form-actions">
+            <button class="primary-button" type="submit">Save</button>
+            <button id="cancelBudget" class="ghost-button" type="button">Cancel</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="goalHeading">
+        <div class="card-header">
+          <h2 id="goalHeading">Monthly goal</h2>
+        </div>
+        <form id="goalForm" class="inline-form">
+          <label>
+            <span>Income target (MYR)</span>
+            <input id="goalIncome" type="text" inputmode="decimal" placeholder="optional" />
+          </label>
+          <label>
+            <span>Savings target (MYR)</span>
+            <input id="goalSavings" type="text" inputmode="decimal" placeholder="optional" />
+          </label>
+          <label class="wide">
+            <span>Notes</span>
+            <input id="goalNotes" type="text" placeholder="optional" />
+          </label>
+          <div class="inline-form-actions">
+            <button class="primary-button" type="submit">Save goal</button>
+          </div>
+        </form>
+        <p id="goalProgress" class="card-note"></p>
+      </section>
+
+      <section class="card" aria-labelledby="addHeading">
+        <div class="card-header">
+          <h2 id="addHeading">Record a transaction</h2>
+        </div>
+        <form id="addForm" class="inline-form">
+          <label>
+            <span>Amount</span>
+            <input id="addAmount" type="text" inputmode="decimal" placeholder="12.34" required />
+          </label>
+          <label>
+            <span>Currency</span>
+            <input id="addCurrency" type="text" value="MYR" maxlength="3" required />
+          </label>
+          <label>
+            <span>Direction</span>
+            <select id="addDirection">
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+          </label>
+          <label>
+            <span>Category</span>
+            <select id="addCategory" required></select>
+          </label>
+          <label>
+            <span>Subcategory</span>
+            <select id="addSubcategory">
+              <option value="">None</option>
+            </select>
+          </label>
+          <label>
+            <span>Account</span>
+            <select id="addAccount"></select>
+          </label>
+          <label>
+            <span>When</span>
+            <input id="addWhen" type="datetime-local" />
+          </label>
+          <label class="wide">
+            <span>Note</span>
+            <input id="addNote" type="text" placeholder="optional" />
+          </label>
+          <div class="inline-form-actions">
+            <button class="primary-button" type="submit">Record</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card manager-card" aria-labelledby="manageHeading">
+        <div class="card-header">
+          <h2 id="manageHeading">Categories</h2>
+          <p class="card-note">
+            Renaming updates every past transaction, so history stays together.
+          </p>
+        </div>
+        <div id="categoryManager" class="category-manager"></div>
+        <form id="newCategoryForm" class="inline-form">
+          <label>
+            <span>New category</span>
+            <input id="newCategoryName" type="text" placeholder="Name" required />
+          </label>
+          <label>
+            <span>Emoji</span>
+            <input id="newCategoryEmoji" type="text" placeholder="optional" maxlength="4" />
+          </label>
+          <div class="inline-form-actions">
+            <button class="primary-button" type="submit">Add category</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card table-card" aria-labelledby="tableHeading">
+        <div class="card-header">
+          <h2 id="tableHeading">Transactions</h2>
+          <div class="table-controls">
+            <input id="searchInput" type="search" placeholder="Search note or code" aria-label="Search transactions" />
+            <select id="categoryFilter" aria-label="Filter by category">
+              <option value="">All categories</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="transaction-table">
+            <thead>
+              <tr>
+                <th scope="col">Code</th>
+                <th scope="col">Date</th>
+                <th scope="col">Category</th>
+                <th scope="col">Note</th>
+                <th scope="col" class="numeric">Amount</th>
+                <th scope="col" class="numeric">MYR</th>
+                <th scope="col"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="transactionBody"></tbody>
+          </table>
+        </div>
+        <p id="tableEmpty" class="card-note" hidden>Nothing recorded for this month yet.</p>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    window.APP_CONFIG = {
+      API_BASE_URL: window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost"
+        ? "" : "https://api.bojiakpui-xyz-student-web-app.me",
+    };
+  </script>
+  <script src="/static/finance.js"></script>
+</body>
+</html>

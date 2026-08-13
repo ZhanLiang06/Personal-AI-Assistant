@@ -23,3 +23,14 @@ dependencies = [
     "tesseract>=0.1.3",
     "uvicorn[standard]>=0.50.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",
+]
+
+[tool.pytest.ini_options]
+# Tests import project modules as `src.*`, so the repository root must be
+# on the path. Without this, `from src.finance...` fails under pytest.
+pythonpath = ["."]
+testpaths = ["tests"]

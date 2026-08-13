@@ -77,7 +77,7 @@ def normalize_currency(currency: str) -> str:
 
 def get_exchange_rate_setting(
     currency: str,
-    db_path: str | Path = FINANCE_DB_PATH,
+    db_path: str | Path | None = None,
 ) -> ExchangeRateSetting | None:
     """Return the stored policy for a currency, or None if unset."""
     code = normalize_currency(currency)
@@ -104,7 +104,7 @@ def get_exchange_rate_setting(
 
 
 def list_exchange_rate_settings(
-    db_path: str | Path = FINANCE_DB_PATH,
+    db_path: str | Path | None = None,
 ) -> list[ExchangeRateSetting]:
     """Return every stored rate policy, ordered by currency."""
     with finance_db(db_path) as connection:
@@ -131,7 +131,7 @@ def set_exchange_rate_setting(
     currency: str,
     mode: str,
     manual_rate: Decimal | int | str | None = None,
-    db_path: str | Path = FINANCE_DB_PATH,
+    db_path: str | Path | None = None,
 ) -> ExchangeRateSetting:
     """
     Create or replace the rate policy for one currency.
@@ -235,7 +235,7 @@ def fetch_historical_rate_scaled(
 def resolve_fx_rate_scaled(
     currency: str,
     occurred_on: date,
-    db_path: str | Path = FINANCE_DB_PATH,
+    db_path: str | Path | None = None,
 ) -> int:
     """
     Resolve the rate to apply to a transaction, as a scaled integer.

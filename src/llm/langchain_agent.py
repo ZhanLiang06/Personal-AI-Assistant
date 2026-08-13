@@ -31,6 +31,7 @@ from src.tools.google_calendar import (
     update_google_calendar_events,
     delete_google_calendar_events,
 )
+from src.tools.finance import FINANCE_TOOLS
 load_dotenv()
 
 
@@ -50,6 +51,7 @@ TOOLS = [
     add_daily_todos,
     update_daily_todos,
     delete_daily_todos,
+    *FINANCE_TOOLS,
 ]
 
 

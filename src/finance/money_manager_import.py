@@ -45,6 +45,7 @@ from src.db.finance_sqlite import (
     finance_db,
     init_finance_db,
 )
+from src.finance.codes import backfill_missing_codes
 from src.finance.money import (
     derive_rate_scaled,
     format_minor_units,
@@ -536,7 +537,7 @@ def render_plan_report(plan: ImportPlan) -> str:
 
 def commit_import_plan(
     plan: ImportPlan,
-    db_path: str | Path = FINANCE_DB_PATH,
+    db_path: str | Path | None = None,
 ) -> None:
     """
     Write the plan to the finance database in a single transaction.
@@ -611,6 +612,11 @@ def commit_import_plan(
                 for item in plan.transactions
             ],
         )
+
+        # These bulk inserts bypass the service layer, so no design code
+        # was assigned along the way. Backfill inside the same
+        # transaction, which numbers transactions chronologically.
+        backfill_missing_codes(connection)
 
 
 def _insert_returning_id(

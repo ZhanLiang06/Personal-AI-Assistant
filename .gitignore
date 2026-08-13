@@ -35,5 +35,11 @@ uvicorn.out.log
 #old files
 old_files/
 
-#test folder
-tests/
+# Test caches. The tests themselves are tracked on purpose: they are the
+# regression net for the finance money arithmetic, and an ignored test
+# suite cannot be restored on another computer.
+.pytest_cache/
+
+# Per-machine Claude Code permissions. launch.json is shared project
+# config and stays tracked.
+.claude/settings.local.json
