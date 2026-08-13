@@ -21,6 +21,9 @@ session_handoff.chat-state
 data/
 obsidian_vault_atlas_export.json
 
+# Money Manager exports (personal financial history)
+*.xlsx
+
 #codex
 .agents
 .codex
