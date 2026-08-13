@@ -36,11 +36,20 @@ import zipfile
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from decimal import Decimal
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from src.db.finance_sqlite import FINANCE_DB_PATH, finance_db, init_finance_db
+from src.db.finance_sqlite import (
+    FX_RATE_SCALE,
+    FINANCE_DB_PATH,
+    finance_db,
+    init_finance_db,
+)
+from src.finance.money import (
+    derive_rate_scaled,
+    format_minor_units,
+    to_minor_units,
+)
 
 
 SHEET_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
@@ -67,9 +76,6 @@ EXPECTED_HEADER = [
 COLUMN_LETTERS = list("ABCDEFGHIJK")
 
 BASE_CURRENCY = "MYR"
-
-# Mirrors FX_RATE_SCALE in src/db/finance_sqlite.py.
-FX_RATE_SCALE = 100_000_000
 
 DIRECTION_BY_SOURCE_LABEL = {
     "Exp.": "expense",
@@ -293,27 +299,6 @@ def excel_serial_to_local_datetime(serial: str) -> datetime:
     return (moment + timedelta(microseconds=500_000)).replace(microsecond=0)
 
 
-def to_minor_units(value: str) -> int:
-    """Convert a decimal money string to integer minor units (sen/fen)."""
-    return int((Decimal(value) * 100).to_integral_value(rounding="ROUND_HALF_UP"))
-
-
-def derive_fx_rate_scaled(amount: str, base_amount: str) -> int:
-    """
-    Derive the rate actually applied to this row, scaled to an integer.
-
-    Uses the source `MYR` column as truth rather than any rate table,
-    so imported totals reproduce Money Manager exactly.
-    """
-    amount_decimal = Decimal(amount)
-    if amount_decimal == 0:
-        raise ValueError("Cannot derive an FX rate from a zero amount.")
-
-    rate = Decimal(base_amount) / amount_decimal
-
-    return int((rate * FX_RATE_SCALE).to_integral_value(rounding="ROUND_HALF_UP"))
-
-
 def split_emoji_prefix(label: str) -> tuple[str | None, str]:
     """
     Split a Money Manager label such as `🍜 Food` into emoji and name.
@@ -441,7 +426,7 @@ def build_import_plan(source_rows: list[SourceRow]) -> ImportPlan:
         if row.currency == BASE_CURRENCY:
             fx_rate_scaled = FX_RATE_SCALE
         else:
-            fx_rate_scaled = derive_fx_rate_scaled(row.amount, row.myr)
+            fx_rate_scaled = derive_rate_scaled(row.amount, row.myr)
 
         accounts.add(row.account)
 
@@ -474,10 +459,6 @@ def build_import_plan(source_rows: list[SourceRow]) -> ImportPlan:
 # --- Reporting ------------------------------------------------------
 
 
-def _format_minor(minor_units: int) -> str:
-    return f"{Decimal(minor_units) / 100:,.2f}"
-
-
 def render_plan_report(plan: ImportPlan) -> str:
     """Render a human-checkable summary of exactly what would be written."""
     lines: list[str] = []
@@ -500,8 +481,8 @@ def render_plan_report(plan: ImportPlan) -> str:
         item.base_amount_minor for item in transactions if item.direction == "income"
     )
 
-    lines.append(f"Total expense          : MYR {_format_minor(expense_total)}")
-    lines.append(f"Total income           : MYR {_format_minor(income_total)}")
+    lines.append(f"Total expense          : MYR {format_minor_units(expense_total)}")
+    lines.append(f"Total income           : MYR {format_minor_units(income_total)}")
 
     currency_counts = Counter(item.currency for item in transactions)
     lines.append(
@@ -520,7 +501,7 @@ def render_plan_report(plan: ImportPlan) -> str:
 
     for category in sorted(plan.categories):
         emoji = plan.categories[category] or " "
-        total = _format_minor(spend_by_category[category])
+        total = format_minor_units(spend_by_category[category])
         children = plan.subcategories.get(category, [])
         lines.append(f"  {emoji:<3} {category:<16} MYR {total:>10}")
         for child in children:
@@ -540,8 +521,8 @@ def render_plan_report(plan: ImportPlan) -> str:
 
     planned_total = sum(item.base_amount_minor for item in transactions)
     lines.append("\nChecksum:")
-    lines.append(f"  source MYR column total : {_format_minor(plan.source_total_myr_minor)}")
-    lines.append(f"  planned insert total    : {_format_minor(planned_total)}")
+    lines.append(f"  source MYR column total : {format_minor_units(plan.source_total_myr_minor)}")
+    lines.append(f"  planned insert total    : {format_minor_units(planned_total)}")
     lines.append(
         "  match                   : "
         + ("yes" if planned_total == plan.source_total_myr_minor else "NO — investigate")
