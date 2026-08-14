@@ -13,15 +13,15 @@ This is for my personal assistance. The project is also a learning project for A
 - Store conversations, tool calls, tool results, errors, and future summaries in local SQLite.
 - Rebuild conversation history from SQLite before each agent run.
 - Stream agent status events to the web UI with Server-Sent Events.
-- Show an expandable process trace for tool calls and tool results.
-- Serve a local web UI from FastAPI.
-- Future: financial tracker tools and workflows.
+- Show a run trace that reports what each tool call actually cost in milliseconds.
+- Track finances: transactions, categories, budgets, goals, and a monthly dashboard.
+- Serve the UI as a separate Vite build ("Kairos") deployed to Cloudflare Pages.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    User["User"] --> WebUI["Web Chat UI<br/>src/web"]
+    User["User"] --> WebUI["Kairos web app<br/>web/ (React + Vite)"]
     WebUI -->|POST /chat/stream<br/>SSE| API["FastAPI<br/>src/api/main.py"]
     API --> Context["Conversation Context Builder<br/>src/llm/conversation_context.py"]
     Context -->|rebuilt message history| Agent["LangChain Agent<br/>src/llm/langchain_agent.py"]
@@ -114,19 +114,29 @@ Install dependencies:
 
 ```powershell
 uv sync
+npm install --prefix web
 ```
 
-Run the local FastAPI app:
+The API and the web app are two processes. Run the API:
 
 ```powershell
 uv run uvicorn src.api.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+Run the web app:
+
+```powershell
+npm run dev --prefix web
+```
+
 Open:
 
 ```text
-http://127.0.0.1:8000
+http://localhost:5173
 ```
+
+FastAPI serves JSON only — opening `:8000` directly shows no UI. Vite proxies
+API paths through to it, so there is no CORS in development.
 
 ## Environment
 
@@ -159,8 +169,12 @@ This opens a browser for Google consent and saves a local token file.
 | `src/db/conver_sqlite.py` | Local SQLite conversation store |
 | `src/tools/obsidian.py` | Obsidian search and daily todo tools |
 | `src/tools/google_calendar.py` | Google Calendar create/list/update/delete tools |
+| `src/api/calendar.py` | Read-only `GET /api/calendar/today` for the web UI |
+| `src/api/finance.py` | Finance JSON API under `/api/finance` |
 | `scripts/google_calendar_oauth.py` | Google OAuth token setup |
-| `src/web/static/app.js` | Browser chat UI behavior |
+| `web/src/styles/base.css` | The design token system — every colour and font resolves here |
+| `web/src/lib/api.js` | The single place that knows where the backend is |
+| `web/src/components/RunTrace.jsx` | The run trace: timing tower / daemon stack |
 
 ## Deployment Shape
 
@@ -168,7 +182,7 @@ The current deployment direction is local-first:
 
 ```mermaid
 flowchart LR
-    Browser["Browser"] --> Pages["Cloudflare Pages<br/>static frontend"]
+    Browser["Browser"] --> Pages["Cloudflare Pages<br/>Vite build of web/"]
     Pages --> Access["Cloudflare Access"]
     Access --> Tunnel["Cloudflare Tunnel"]
     Tunnel --> FastAPI["Local FastAPI<br/>localhost:8000"]

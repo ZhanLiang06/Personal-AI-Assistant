@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" data-theme="telemetry" data-mode="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Kairos</title>
+    <script>
+      // Runs before first paint so the app never flashes the wrong skin.
+      try {
+        const theme = localStorage.getItem("kairos-theme");
+        const mode = localStorage.getItem("kairos-mode");
+        if (theme === "telemetry" || theme === "edgerunner") {
+          document.documentElement.dataset.theme = theme;
+        }
+        if (mode === "light" || mode === "dark") {
+          document.documentElement.dataset.mode = mode;
+        } else if (window.matchMedia("(prefers-color-scheme: light)").matches) {
+          document.documentElement.dataset.mode = "light";
+        }
+      } catch {
+        // Fall through to the default dark telemetry skin.
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

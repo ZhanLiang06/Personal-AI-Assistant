@@ -2,8 +2,8 @@
 
 This project uses a local-first deployment model:
 
-- Frontend: Cloudflare Pages
-- Backend: local FastAPI server
+- Frontend: Cloudflare Pages, built from `web/` with Vite
+- Backend: local FastAPI server, JSON only
 - Public frontend domain: `https://bojiakpui-xyz-student-web-app.me`
 - Public API domain: `https://api.bojiakpui-xyz-student-web-app.me`
 - Backend exposure: Cloudflare named tunnel to `http://localhost:8000`
@@ -14,7 +14,7 @@ This project uses a local-first deployment model:
 
 ```text
 Browser
--> Cloudflare Pages frontend
+-> Cloudflare Pages frontend (static build of web/)
 -> api.bojiakpui-xyz-student-web-app.me
 -> Cloudflare Access
 -> Cloudflare Tunnel
@@ -24,35 +24,56 @@ Browser
 
 ## Cloudflare Pages
 
-Pages should deploy the static frontend from:
+The frontend is now a Vite build, not a folder of hand-written files, so Pages
+needs a build command. Settings:
+
+| Setting | Value |
+| --- | --- |
+| Framework preset | None (or Vite) |
+| Build command | `npm ci && npm run build` |
+| Build output directory | `web/dist` |
+| Root directory | `web` |
+| Node version | 20 or newer |
+
+With **Root directory** set to `web`, the build command runs inside that folder
+and the output directory is `dist` relative to it. If your Pages project has no
+root-directory setting, leave it blank and use:
 
 ```text
-src/web
+Build command:  npm ci --prefix web && npm run build --prefix web
+Output:         web/dist
 ```
 
-The deployed site should expose:
+### Environment variable
+
+Set this for both Production and Preview:
 
 ```text
-/
-/static/app.js
-/static/styles.css
+VITE_API_BASE_URL = https://api.bojiakpui-xyz-student-web-app.me
 ```
 
-The frontend config in `src/web/index.html` points browser API calls at:
+It is baked in at build time, so changing it requires a redeploy. The app also
+falls back to that same URL if the variable is missing, and uses relative paths
+when served from localhost.
+
+### SPA routing
+
+`/finance` is a client-side route. `web/public/_redirects` ships this rule so a
+hard refresh on it does not 404:
 
 ```text
-https://api.bojiakpui-xyz-student-web-app.me
+/*    /index.html   200
 ```
 
 ## Cloudflare Tunnel
 
-The named tunnel should route only the API subdomain to the local FastAPI server:
+Unchanged. The named tunnel routes only the API subdomain to FastAPI:
 
 ```text
 api.bojiakpui-xyz-student-web-app.me -> http://localhost:8000
 ```
 
-The root frontend domain should not route to the tunnel:
+The root frontend domain stays on Pages:
 
 ```text
 bojiakpui-xyz-student-web-app.me -> Cloudflare Pages
@@ -60,23 +81,53 @@ bojiakpui-xyz-student-web-app.me -> Cloudflare Pages
 
 ## Cloudflare Access And CORS
 
-The API is protected by Cloudflare Access. Since the browser sends JSON with credentials to a different origin, the browser performs a CORS preflight:
+Unchanged. The API is behind Access, and the browser sends credentialed JSON
+cross-origin, so it preflights:
 
 ```text
 OPTIONS /chat/stream
 ```
 
-For this setup, Cloudflare Access should allow preflight requests to reach FastAPI:
+Access must allow preflight through:
 
 ```text
 Bypass OPTIONS requests to origin: ON
 ```
 
-FastAPI then responds with the CORS headers configured in `src/api/main.py`.
+FastAPI then answers with the CORS headers from `ALLOWED_ORIGINS` in
+`src/api/main.py`. That list now includes the Vite dev ports (5173, 4173) and
+no longer includes `:8000`, because FastAPI no longer serves any HTML.
+
+## Local Development
+
+Two processes. The API:
+
+```powershell
+uv run uvicorn src.api.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+The frontend:
+
+```powershell
+npm install --prefix web
+npm run dev --prefix web
+```
+
+Then open `http://localhost:5173`. Vite proxies `/api`, `/chat`,
+`/conversations`, and `/health` to FastAPI, so there is no CORS in development.
+`/finance` is deliberately not proxied — it is a page route, while the finance
+JSON lives under `/api/finance`.
+
+To check the production bundle locally:
+
+```powershell
+npm run build --prefix web
+npm run preview --prefix web
+```
 
 ## Verification Checklist
 
-Check the frontend:
+Frontend:
 
 ```powershell
 curl.exe -L -I https://bojiakpui-xyz-student-web-app.me/
@@ -84,23 +135,16 @@ curl.exe -L -I https://bojiakpui-xyz-student-web-app.me/
 
 Expected: `Content-Type: text/html`.
 
-Check JavaScript:
+SPA route:
 
 ```powershell
-curl.exe -L -I https://bojiakpui-xyz-student-web-app.me/static/app.js
+curl.exe -L -I https://bojiakpui-xyz-student-web-app.me/finance
 ```
 
-Expected: `Content-Type: application/javascript` or `text/javascript`.
+Expected: `200` and `Content-Type: text/html` — not a 404. A 404 here means
+`_redirects` did not ship.
 
-Check CSS:
-
-```powershell
-curl.exe -L -I https://bojiakpui-xyz-student-web-app.me/static/styles.css
-```
-
-Expected: `Content-Type: text/css`.
-
-Check CORS preflight:
+CORS preflight:
 
 ```powershell
 curl.exe -i -X OPTIONS https://api.bojiakpui-xyz-student-web-app.me/chat/stream `
@@ -109,21 +153,15 @@ curl.exe -i -X OPTIONS https://api.bojiakpui-xyz-student-web-app.me/chat/stream 
   -H "Access-Control-Request-Headers: content-type"
 ```
 
-Expected response headers:
+Expected:
 
 ```text
 Access-Control-Allow-Origin: https://bojiakpui-xyz-student-web-app.me
 Access-Control-Allow-Credentials: true
-Access-Control-Allow-Methods: GET, POST
 ```
 
-Finally, open the frontend in a browser and send a message:
-
-```text
-https://bojiakpui-xyz-student-web-app.me
-```
-
-If Cloudflare Access asks for login, authenticate first against the API domain:
+Finally, open the frontend and send a message. If Access asks for login,
+authenticate against the API domain first:
 
 ```text
 https://api.bojiakpui-xyz-student-web-app.me/health

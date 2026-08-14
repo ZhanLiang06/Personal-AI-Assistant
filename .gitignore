@@ -43,3 +43,6 @@ old_files/
 # Per-machine Claude Code permissions. launch.json is shared project
 # config and stays tracked.
 .claude/settings.local.json
+# Frontend build artifacts
+node_modules/
+web/dist/

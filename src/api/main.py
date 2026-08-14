@@ -6,11 +6,11 @@ from rich import print as rprint
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from src.api.calendar import router as calendar_router
 from src.api.finance import router as finance_router
 from src.db.finance_sqlite import init_finance_db
 from src.llm.langchain_agent import build_runtime_context, run_agent, stream_agent_events, message_text
@@ -37,13 +37,16 @@ from src.db.conver_sqlite import (
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-WEB_DIR = BASE_DIR / "src" / "web"
 
+# The frontend is a separate Vite build deployed to Cloudflare Pages, so this
+# app serves JSON only. 5173 is the Vite dev server; 4173 is `vite preview`.
 ALLOWED_ORIGINS = [
-    "http://127.0.0.1:8000",
-    "http://localhost:8000",
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "http://127.0.0.1:4173",
+    "http://localhost:4173",
     "https://bojiakpui-xyz-student-web-app.me",
-    "https://www.bojiakpui-xyz-student-web-app.me"
+    "https://www.bojiakpui-xyz-student-web-app.me",
 ]
 
 app = FastAPI(title="Personal Assistance with AI Agents", description="An API for personal assistance using AI agents.")
@@ -58,9 +61,6 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
-STATIC_DIR = WEB_DIR / "static"
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
 init_conversation_db()
 
 # Creates the finance schema on a fresh machine and applies any pending
@@ -68,6 +68,7 @@ init_conversation_db()
 init_finance_db()
 
 app.include_router(finance_router)
+app.include_router(calendar_router)
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, description="User message to send to the agent.")
@@ -143,14 +144,6 @@ def _generate_and_store_conversation_title(
 def _sse_event(event: str, data: dict[str, Any]) -> str:
     payload = json.dumps(data, ensure_ascii=False)
     return f"event: {event}\ndata: {payload}\n\n"
-
-@app.get("/")
-def web_app() -> FileResponse:
-    return FileResponse(WEB_DIR / "index.html")
-
-@app.get("/finance")
-def finance_app() -> FileResponse:
-    return FileResponse(WEB_DIR / "finance.html")
 
 @app.get("/health")
 def health_check() -> dict[str, str]:
@@ -310,6 +303,16 @@ def conversation_detail(conversation_id: str) -> ConversationDetailResponse:
             for event in events
         ],
     )
+
+
+@app.delete("/conversations/{conversation_id}", status_code=204)
+def remove_conversation(conversation_id: str) -> None:
+    # The thread list needs a way to drop a thread. Deleting a conversation
+    # removes its events too, so the agent cannot rebuild history from it.
+    if get_conversation(conversation_id) is None:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+
+    delete_conversation(conversation_id)
 
 
 @app.patch("/conversations/{conversation_id}/title", response_model=ConversationResponse)

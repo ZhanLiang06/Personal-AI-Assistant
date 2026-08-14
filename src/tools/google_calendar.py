@@ -205,6 +205,34 @@ def _calendar_service():
     return build("calendar", "v3", credentials=creds)
 
 
+def fetch_raw_events(
+    time_min: str,
+    time_max: str,
+    max_results: int = 20,
+) -> list[dict]:
+    """
+    Return raw Google Calendar items for a window.
+
+    The `@tool` functions above format events into prose for the agent to
+    read. The HTTP layer needs the fields themselves, so it calls this
+    instead of parsing that prose back apart.
+    """
+    service = _calendar_service()
+    result = (
+        service.events()
+        .list(
+            calendarId=CALENDAR_ID,
+            timeMin=time_min,
+            timeMax=time_max,
+            maxResults=max_results,
+            singleEvents=True,
+            orderBy="startTime",
+        )
+        .execute()
+    )
+    return result.get("items", [])
+
+
 def _parse_date(value: str) -> date:
     return date.fromisoformat(value)
 
