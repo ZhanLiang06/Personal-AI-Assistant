@@ -46,3 +46,4 @@ old_files/
 # Frontend build artifacts
 node_modules/
 web/dist/
+web/.vite/
