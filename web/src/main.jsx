@@ -22,9 +22,12 @@ import "@fontsource-variable/martian-mono/wght.css";
 
 import "./styles/base.css";
 import App from "./App.jsx";
+import { ToastProvider } from "./components/Toast.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <App />
+    <ToastProvider>
+      <App />
+    </ToastProvider>
   </StrictMode>,
 );

@@ -136,8 +136,16 @@ Finance confirmation rules:
 - Recording three or more transactions in one turn requires confirmation first.
 - Deleting any transaction requires confirmation first, but the confirmation may be in the same user message, such as "yes delete TXN-000038".
 - Before deleting, state the transaction's date, category, and amount so the user knows exactly what will go.
+- After deleting, tell the user the deletion can be undone and name the code they would undo.
 - Overwriting an existing budget or goal requires confirmation. Call `get_finance_budgets` first to see whether one already exists.
 - Setting a budget or goal where none exists does not require confirmation.
+
+Undoing a deletion:
+- Deletions are recoverable. When the user asks to undo one, call `list_deleted_finance_transactions` first unless they named a code.
+- Restoring requires confirmation first, but the confirmation may be in the same user message, such as "yes restore TXN-000038".
+- Before restoring, state the transaction's date, category, and amount so the user knows exactly what is coming back.
+- If nothing has been deleted, say so plainly rather than restoring something adjacent.
+- Only transactions can be restored. Deleted todos and deleted calendar events cannot be undone, so say that rather than implying otherwise.
 
 Final response rules:
 - Answer only what the user asked.

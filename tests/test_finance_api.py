@@ -350,6 +350,40 @@ def test_deleting_twice_is_a_400(stocked):
     assert again.status_code == 400
 
 
+def test_restore_undoes_a_delete(stocked):
+    before = stocked.get(f"{API}/transactions").json()["total"]
+    stocked.delete(f"{API}/transactions/TXN-000002")
+
+    restored = stocked.post(f"{API}/transactions/TXN-000002/restore")
+
+    assert restored.status_code == 200
+    assert restored.json()["amount"]["minor"] == 2550
+    assert stocked.get(f"{API}/transactions/TXN-000002").status_code == 200
+    assert stocked.get(f"{API}/transactions").json()["total"] == before
+
+
+def test_restoring_a_live_transaction_is_a_400(stocked):
+    assert stocked.post(f"{API}/transactions/TXN-000002/restore").status_code == 400
+
+
+def test_deleted_list_shows_what_can_be_restored(stocked):
+    assert stocked.get(f"{API}/transactions/deleted").json() == []
+
+    stocked.delete(f"{API}/transactions/TXN-000002")
+    removed = stocked.get(f"{API}/transactions/deleted").json()
+
+    assert [item["code"] for item in removed] == ["TXN-000002"]
+
+
+def test_deleted_path_is_not_read_as_a_transaction_code(stocked):
+    # /transactions/deleted must win over /transactions/{code}. If the routes
+    # were declared the other way round this would 400 on an invalid code.
+    response = stocked.get(f"{API}/transactions/deleted")
+
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+
 # --- Summary --------------------------------------------------------
 
 

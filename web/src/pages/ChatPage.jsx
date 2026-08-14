@@ -59,6 +59,7 @@ export default function ChatPage({
 
   const abortRef = useRef(null);
   const endRef = useRef(null);
+  const composerRef = useRef(null);
 
   // A run on a fresh thread reports its new id mid-stream. That id must not be
   // mistaken for the user opening a different thread, or the history load
@@ -92,6 +93,34 @@ export default function ChatPage({
   }, [turns, running]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  // Enter puts the cursor in the composer from anywhere on the page, so you can
+  // start typing without reaching for the mouse. It stays out of the way when
+  // you are already in a field, or using Enter to press something.
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key !== "Enter" || event.metaKey || event.ctrlKey || event.altKey) return;
+
+      const active = document.activeElement;
+      const tag = active?.tagName;
+      if (
+        tag === "TEXTAREA" ||
+        tag === "INPUT" ||
+        tag === "SELECT" ||
+        tag === "BUTTON" ||
+        tag === "A" ||
+        active?.isContentEditable
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      composerRef.current?.focus();
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   /* --- sending ----------------------------------------------------------- */
 
@@ -172,6 +201,8 @@ export default function ChatPage({
       } finally {
         setRunning(false);
         abortRef.current = null;
+        // Land the cursor back in the composer so the next message needs no click.
+        composerRef.current?.focus();
       }
     },
     [draft, running, conversationId, setConversationId, onThreadsChanged],
@@ -207,6 +238,7 @@ export default function ChatPage({
                   onStop={stop}
                   running={running}
                   theme={theme}
+                  fieldRef={composerRef}
                   autoFocus
                 />
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -262,6 +294,7 @@ export default function ChatPage({
               onStop={stop}
               running={running}
               theme={theme}
+              fieldRef={composerRef}
             />
           </div>
         </div>

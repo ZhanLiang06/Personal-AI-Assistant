@@ -15,6 +15,8 @@ This is for my personal assistance. The project is also a learning project for A
 - Stream agent status events to the web UI with Server-Sent Events.
 - Show a run trace that reports what each tool call actually cost in milliseconds.
 - Track finances: transactions, categories, budgets, goals, and a monthly dashboard.
+- Undo a deleted transaction, from the dashboard or by asking the agent. Deletions
+  are soft, so restoring puts the record back into every total unchanged.
 - Serve the UI as a separate Vite build ("Kairos") deployed to Cloudflare Pages.
 
 ## Architecture

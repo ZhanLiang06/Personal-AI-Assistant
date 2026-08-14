@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import { useToast } from "../components/Toast.jsx";
 import {
   createCategory,
   createTransaction,
@@ -8,6 +10,7 @@ import {
   listTransactions,
   removeBudget,
   removeTransaction,
+  restoreTransaction,
   setBudget,
   setGoal,
   updateCategory,
@@ -285,7 +288,7 @@ function Classification({ summary, filter, onFilter }) {
    Budgets
    ========================================================================== */
 
-function Budgets({ budgets, categories, month, onChanged }) {
+function Budgets({ budgets, categories, month, onChanged, onRemove }) {
   const [adding, setAdding] = useState(false);
   const [category, setCategory] = useState("");
   const [limit, setLimit] = useState("");
@@ -398,10 +401,7 @@ function Budgets({ budgets, categories, month, onChanged }) {
                     type="button"
                     className="data text-[10px]"
                     style={{ color: "var(--faint)" }}
-                    onClick={async () => {
-                      await removeBudget(budget.code).catch(() => {});
-                      onChanged();
-                    }}
+                    onClick={() => onRemove(budget)}
                   >
                     remove
                   </button>
@@ -682,7 +682,7 @@ function CategoryManager({ categories, onChanged }) {
    Transactions
    ========================================================================== */
 
-function TransactionTable({ rows, loading, search, onSearch, filter, onFilter, categories, onChanged }) {
+function TransactionTable({ rows, loading, search, onSearch, filter, onFilter, categories, onDelete }) {
   return (
     <Card
       title="transactions"
@@ -773,10 +773,7 @@ function TransactionTable({ rows, loading, search, onSearch, filter, onFilter, c
                       type="button"
                       className="data text-[10px]"
                       style={{ color: "var(--faint)" }}
-                      onClick={async () => {
-                        await removeTransaction(row.code).catch(() => {});
-                        onChanged();
-                      }}
+                      onClick={() => onDelete(row)}
                       aria-label={`Delete transaction ${row.code}`}
                     >
                       ✕
@@ -811,6 +808,69 @@ export default function FinancePage({ theme }) {
 
   const [version, setVersion] = useState(0);
   const refresh = useCallback(() => setVersion((value) => value + 1), []);
+
+  const toast = useToast();
+  // One dialog serves both kinds of deletion. It holds the copy and the action,
+  // so adding a third deletable thing later means describing it, not rebuilding
+  // the modal.
+  const [pending, setPending] = useState(null);
+
+  const askDeleteTransaction = useCallback((row) => {
+    setPending({
+      title: "Delete this transaction?",
+      detail: `${shortDate(row.occurred_at)} · ${row.category} · ${
+        row.direction === "income" ? "+" : "−"
+      }${bare(row.amount)}${row.note ? ` · ${row.note}` : ""}`,
+      confirmLabel: "delete",
+      run: async () => {
+        await removeTransaction(row.code);
+        toast.show({
+          message: `Deleted ${row.code}.`,
+          tone: "warn",
+          action: {
+            label: "undo",
+            run: async () => {
+              try {
+                await restoreTransaction(row.code);
+                toast.show({ message: `Restored ${row.code}.`, tone: "good" });
+              } catch (failure) {
+                toast.show({ message: `Could not restore: ${failure.message}`, tone: "bad" });
+              } finally {
+                refresh();
+              }
+            },
+          },
+        });
+      },
+    });
+  }, [toast, refresh]);
+
+  const askRemoveBudget = useCallback((budget) => {
+    setPending({
+      title: "Remove this budget?",
+      detail: `${budget.category} · limit ${bare(budget.limit)}. Your transactions are not touched — only the target goes.`,
+      confirmLabel: "remove",
+      run: async () => {
+        await removeBudget(budget.code);
+        // Budgets have no soft delete behind them, so this toast cannot offer
+        // an undo. Setting it again is the recovery, and it is cheap.
+        toast.show({ message: `Removed the ${budget.category} budget.`, tone: "warn" });
+      },
+    });
+  }, [toast]);
+
+  const runPending = useCallback(async () => {
+    if (!pending) return;
+    const action = pending;
+    setPending(null);
+    try {
+      await action.run();
+    } catch (failure) {
+      toast.show({ message: failure.message, tone: "bad" });
+    } finally {
+      refresh();
+    }
+  }, [pending, toast, refresh]);
 
   useEffect(() => {
     let live = true;
@@ -945,6 +1005,7 @@ export default function FinancePage({ theme }) {
                   categories={overview.categories}
                   month={month}
                   onChanged={refresh}
+                  onRemove={askRemoveBudget}
                 />
                 <Goal goal={overview.goal} summary={overview.summary} month={month} onChanged={refresh} />
               </div>
@@ -958,7 +1019,7 @@ export default function FinancePage({ theme }) {
               filter={filter}
               onFilter={setFilter}
               categories={overview.categories}
-              onChanged={refresh}
+              onDelete={askDeleteTransaction}
             />
 
             <div className="grid gap-3 lg:grid-cols-2">
@@ -968,6 +1029,15 @@ export default function FinancePage({ theme }) {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={pending !== null}
+        title={pending?.title}
+        detail={pending?.detail}
+        confirmLabel={pending?.confirmLabel}
+        onConfirm={runPending}
+        onCancel={() => setPending(null)}
+      />
     </main>
   );
 }

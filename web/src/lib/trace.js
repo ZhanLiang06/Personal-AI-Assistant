@@ -18,6 +18,22 @@ const TOOL_LABELS = {
   update_google_calendar_events: "update events",
   delete_google_calendar_events: "delete events",
   get_current_time: "clock",
+  list_vault_structure: "read vault",
+  record_finance_transaction: "record spend",
+  update_finance_transaction: "update spend",
+  delete_finance_transaction: "delete spend",
+  restore_finance_transaction: "restore spend",
+  list_deleted_finance_transactions: "read deleted",
+  list_finance_transactions: "read spend",
+  get_finance_summary: "spend summary",
+  list_finance_categories: "read categories",
+  add_finance_category: "add category",
+  add_finance_subcategory: "add subcategory",
+  update_finance_category: "rename category",
+  update_finance_subcategory: "rename subcategory",
+  set_finance_budget: "set budget",
+  get_finance_budgets: "read budgets",
+  set_finance_goal: "set goal",
 };
 
 const PHASE_LABELS = {

@@ -1,7 +1,18 @@
 import { useEffect, useRef } from "react";
 
-export default function Composer({ value, onChange, onSubmit, onStop, running, theme, autoFocus }) {
-  const fieldRef = useRef(null);
+export default function Composer({
+  value,
+  onChange,
+  onSubmit,
+  onStop,
+  running,
+  theme,
+  autoFocus,
+  fieldRef: externalRef,
+}) {
+  const internalRef = useRef(null);
+  // The page reaches in to focus this when Enter is pressed anywhere else.
+  const fieldRef = externalRef ?? internalRef;
 
   // Grow with the text, up to a point, then scroll.
   useEffect(() => {

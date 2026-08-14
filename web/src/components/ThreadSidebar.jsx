@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { relativeDay } from "../lib/format.js";
 import { routeLinkProps } from "../lib/router.js";
 
@@ -9,14 +9,6 @@ import { routeLinkProps } from "../lib/router.js";
  */
 
 function ThreadRow({ thread, active, onOpen, onDelete }) {
-  const [confirming, setConfirming] = useState(false);
-
-  useEffect(() => {
-    if (!confirming) return;
-    const timer = setTimeout(() => setConfirming(false), 4000);
-    return () => clearTimeout(timer);
-  }, [confirming]);
-
   return (
     <li className="group relative">
       <button
@@ -42,12 +34,12 @@ function ThreadRow({ thread, active, onOpen, onDelete }) {
 
       <button
         type="button"
-        onClick={() => (confirming ? onDelete(thread.id) : setConfirming(true))}
-        aria-label={confirming ? `Confirm delete ${thread.title}` : `Delete ${thread.title}`}
+        onClick={() => onDelete(thread)}
+        aria-label={`Delete ${thread.title || "thread"}`}
         className="data absolute right-1 top-1.5 px-1.5 py-1 text-[10px] opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-        style={{ color: confirming ? "var(--pace-over)" : "var(--faint)" }}
+        style={{ color: "var(--faint)" }}
       >
-        {confirming ? "sure?" : "✕"}
+        ✕
       </button>
     </li>
   );

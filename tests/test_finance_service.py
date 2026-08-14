@@ -33,10 +33,12 @@ from src.finance.service import (
     get_transaction_by_code,
     list_budgets,
     list_categories,
+    list_deleted_transactions,
     list_subcategories,
     list_transactions,
     normalize_month,
     record_transaction,
+    restore_transaction,
     set_budget,
     set_goal,
     update_category,
@@ -309,6 +311,54 @@ def test_deleting_twice_fails_clearly(shop: Path):
 
     with pytest.raises(FinanceError, match="No live transaction"):
         delete_transaction("TXN-000002", db_path=shop)
+
+
+def test_restore_puts_a_deleted_transaction_back(shop: Path):
+    before = list_transactions(db_path=shop).total
+    removed = delete_transaction("TXN-000002", db_path=shop)
+
+    restored = restore_transaction("TXN-000002", db_path=shop)
+
+    assert restored.amount_minor == removed.amount_minor
+    assert restored.occurred_at == removed.occurred_at
+    assert restored.category == removed.category
+    assert get_transaction_by_code("TXN-000002", db_path=shop) is not None
+    assert list_transactions(db_path=shop).total == before
+
+
+def test_restored_transaction_counts_towards_totals_again(shop: Path):
+    period = summarize(date(2026, 3, 1), date(2026, 3, 31), db_path=shop)
+    before = period.total_expense_minor
+
+    delete_transaction("TXN-000002", db_path=shop)
+    during = summarize(date(2026, 3, 1), date(2026, 3, 31), db_path=shop)
+    assert during.total_expense_minor < before
+
+    restore_transaction("TXN-000002", db_path=shop)
+    after = summarize(date(2026, 3, 1), date(2026, 3, 31), db_path=shop)
+    assert after.total_expense_minor == before
+
+
+def test_restoring_a_live_transaction_fails_clearly(shop: Path):
+    with pytest.raises(FinanceError, match="is not deleted"):
+        restore_transaction("TXN-000002", db_path=shop)
+
+
+def test_restoring_an_unknown_code_fails_clearly(shop: Path):
+    with pytest.raises(FinanceError, match="No transaction with code"):
+        restore_transaction("TXN-009999", db_path=shop)
+
+
+def test_deleted_list_is_newest_removal_first(shop: Path):
+    delete_transaction("TXN-000002", db_path=shop)
+    delete_transaction("TXN-000004", db_path=shop)
+
+    removed = list_deleted_transactions(db_path=shop)
+
+    assert [item.code for item in removed] == ["TXN-000004", "TXN-000002"]
+
+    restore_transaction("TXN-000004", db_path=shop)
+    assert [item.code for item in list_deleted_transactions(db_path=shop)] == ["TXN-000002"]
 
 
 def test_deleted_transaction_cannot_be_edited(shop: Path):

@@ -93,6 +93,16 @@ class DeleteTransactionInput(BaseModel):
     code: str = Field(description="Design code, e.g. TXN-000038.")
 
 
+class RestoreTransactionInput(BaseModel):
+    code: str = Field(
+        description="Design code of a deleted transaction, e.g. TXN-000038.",
+    )
+
+
+class ListDeletedTransactionsInput(BaseModel):
+    limit: int = Field(default=10, ge=1, le=MAX_LISTED_TRANSACTIONS)
+
+
 class ListTransactionsInput(BaseModel):
     start: Optional[str] = Field(default=None, description="YYYY-MM-DD, inclusive.")
     end: Optional[str] = Field(default=None, description="YYYY-MM-DD, inclusive.")
@@ -360,6 +370,43 @@ def delete_finance_transaction(code: str) -> str:
         return f"Could not delete {code}: {error}"
 
     return f"Deleted: {_describe(removed)}"
+
+
+@tool("list_deleted_finance_transactions", args_schema=ListDeletedTransactionsInput)
+def list_deleted_finance_transactions(limit: int = 10) -> str:
+    """
+    List recently deleted transactions, most recently deleted first.
+
+    Use this to find the code to hand to `restore_finance_transaction` when
+    the user asks to undo a deletion without naming one.
+    """
+    try:
+        removed = service.list_deleted_transactions(limit)
+    except Exception as error:
+        return f"Could not list deleted transactions: {error}"
+
+    if not removed:
+        return "Nothing has been deleted."
+
+    lines = [f"{index}. {_describe(item)}" for index, item in enumerate(removed, start=1)]
+    return "Deleted transactions, most recent first:\n" + "\n".join(lines)
+
+
+@tool("restore_finance_transaction", args_schema=RestoreTransactionInput)
+def restore_finance_transaction(code: str) -> str:
+    """
+    Undo a deletion, identified by the transaction's design code.
+
+    The record starts counting towards every total again at its original
+    amount and date. Always confirm with the user before calling this, and
+    say which transaction is coming back.
+    """
+    try:
+        restored = service.restore_transaction(code)
+    except Exception as error:
+        return f"Could not restore {code}: {error}"
+
+    return f"Restored: {_describe(restored)}"
 
 
 @tool("list_finance_transactions", args_schema=ListTransactionsInput)
@@ -685,6 +732,8 @@ FINANCE_TOOLS = [
     record_finance_transaction,
     update_finance_transaction,
     delete_finance_transaction,
+    restore_finance_transaction,
+    list_deleted_finance_transactions,
     list_finance_transactions,
     get_finance_summary,
     list_finance_categories,

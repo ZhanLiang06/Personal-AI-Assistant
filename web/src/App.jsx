@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import HeaderRail from "./components/HeaderRail.jsx";
 import { ContextRail } from "./components/ContextStrip.jsx";
 import ThreadSidebar from "./components/ThreadSidebar.jsx";
+import ConfirmDialog from "./components/ConfirmDialog.jsx";
+import { useToast } from "./components/Toast.jsx";
 import ChatPage from "./pages/ChatPage.jsx";
 import FinancePage from "./pages/FinancePage.jsx";
 import { deleteConversation, listConversations } from "./lib/api.js";
@@ -17,6 +19,9 @@ export default function App() {
   const [threads, setThreads] = useState([]);
   const [conversationId, setConversationId] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [pendingThread, setPendingThread] = useState(null);
+
+  const toast = useToast();
 
   // The landing tiles and the retracted header rail read the same snapshot.
   const context = useContextData();
@@ -44,14 +49,26 @@ export default function App() {
     navigate("/");
   }, [navigate]);
 
-  const removeThread = useCallback(
-    async (id) => {
-      await deleteConversation(id).catch(() => {});
-      if (id === conversationId) setConversationId(null);
+  // Threads are hard-deleted: the events go with them, so the agent could not
+  // rebuild the conversation even if we kept the row. The dialog says so, and
+  // the toast that follows offers no undo, because there is none to offer.
+  const askRemoveThread = useCallback((thread) => setPendingThread(thread), []);
+
+  const removeThread = useCallback(async () => {
+    const thread = pendingThread;
+    if (!thread) return;
+    setPendingThread(null);
+
+    try {
+      await deleteConversation(thread.id);
+      if (thread.id === conversationId) setConversationId(null);
+      toast.show({ message: `Deleted "${thread.title || "Untitled thread"}".`, tone: "warn" });
+    } catch (failure) {
+      toast.show({ message: `Could not delete the thread: ${failure.message}`, tone: "bad" });
+    } finally {
       refreshThreads();
-    },
-    [conversationId, refreshThreads],
-  );
+    }
+  }, [pendingThread, conversationId, refreshThreads, toast]);
 
   const onFinance = path === "/finance";
 
@@ -65,7 +82,7 @@ export default function App() {
         threads={threads}
         activeId={conversationId}
         onOpen={openThread}
-        onDelete={removeThread}
+        onDelete={askRemoveThread}
         onNew={newThread}
         navigate={navigate}
         path={path}
@@ -78,8 +95,8 @@ export default function App() {
           mode={mode}
           setTheme={setTheme}
           toggleMode={toggleMode}
-          navigate={navigate}
           onOpenThreads={() => setDrawerOpen(true)}
+          onNewThread={newThread}
           rail={
             !onFinance && conversationId ? (
               <ContextRail today={context.today} overview={context.overview} />
@@ -100,6 +117,15 @@ export default function App() {
           />
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingThread !== null}
+        title="Delete this thread?"
+        detail={`"${pendingThread?.title || "Untitled thread"}" and everything in it goes for good. This cannot be undone.`}
+        confirmLabel="delete"
+        onConfirm={removeThread}
+        onCancel={() => setPendingThread(null)}
+      />
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import { ContextRail } from "./ContextStrip.jsx";
-import { routeLinkProps } from "../lib/router.js";
 
 const THEMES = [
   { id: "telemetry", short: "TLM", full: "telemetry" },
@@ -13,7 +12,7 @@ export default function HeaderRail({
   toggleMode,
   rail,
   onOpenThreads,
-  navigate,
+  onNewThread,
   children,
 }) {
   return (
@@ -30,10 +29,18 @@ export default function HeaderRail({
         ☰
       </button>
 
+      {/* The wordmark is the way back to a blank slate: it opens a new thread
+          rather than merely routing home, which is what "back to the start"
+          means in a chat app. */}
       <a
-        {...routeLinkProps("/", navigate)}
+        href="/"
+        onClick={(event) => {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+          event.preventDefault();
+          onNewThread();
+        }}
         className="glitch flex items-baseline gap-2"
-        aria-label="Kairos home"
+        aria-label="New thread"
       >
         <span
           className="inline-block h-3 w-1.5"

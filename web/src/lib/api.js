@@ -67,6 +67,10 @@ export const updateTransaction = (code, body) =>
   request(`/api/finance/transactions/${code}`, { method: "PATCH", ...json(body) });
 export const removeTransaction = (code) =>
   request(`/api/finance/transactions/${code}`, { method: "DELETE" });
+export const restoreTransaction = (code) =>
+  request(`/api/finance/transactions/${code}/restore`, { method: "POST" });
+export const listDeletedTransactions = (limit = 20) =>
+  request(`/api/finance/transactions/deleted?limit=${limit}`);
 export const listCategories = () => request("/api/finance/categories");
 export const createCategory = (body) =>
   request("/api/finance/categories", { method: "POST", ...json(body) });

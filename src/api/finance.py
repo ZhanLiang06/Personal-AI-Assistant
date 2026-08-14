@@ -640,6 +640,30 @@ def create_transaction(request: TransactionCreateRequest) -> TransactionResponse
     return to_transaction_response(created)
 
 
+@router.get("/transactions/deleted", response_model=list[TransactionResponse])
+def get_deleted_transactions(
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> list[TransactionResponse]:
+    """
+    Recently deleted transactions, newest removal first.
+
+    Declared before /transactions/{code} so the literal path wins the match:
+    otherwise "deleted" would be read as a transaction code.
+    """
+    return [to_transaction_response(item) for item in service.list_deleted_transactions(limit)]
+
+
+@router.post("/transactions/{code}/restore", response_model=TransactionResponse)
+def restore_one_transaction(code: str) -> TransactionResponse:
+    """Undo a soft delete. Returns the transaction as it is once restored."""
+    try:
+        restored = service.restore_transaction(code)
+    except Exception as error:
+        raise _fail(error) from error
+
+    return to_transaction_response(restored)
+
+
 @router.get("/transactions/{code}", response_model=TransactionResponse)
 def get_one_transaction(code: str) -> TransactionResponse:
     try:

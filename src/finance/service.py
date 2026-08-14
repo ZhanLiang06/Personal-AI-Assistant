@@ -1278,6 +1278,81 @@ def delete_transaction(
     return existing
 
 
+def get_deleted_transaction_by_code(
+    code: str,
+    db_path: str | Path | None = None,
+) -> Transaction | None:
+    """Read a soft-deleted transaction. The live lookup deliberately hides these."""
+    normalized = code_for_table(code, "transactions")
+
+    with finance_db(db_path) as connection:
+        row = connection.execute(
+            f"{_TRANSACTION_SELECT} WHERE t.code = ? AND t.deleted_at IS NOT NULL",
+            (normalized,),
+        ).fetchone()
+
+    return Transaction(**dict(row)) if row is not None else None
+
+
+def list_deleted_transactions(
+    limit: int = 20,
+    db_path: str | Path | None = None,
+) -> list[Transaction]:
+    """
+    Most recently deleted first, so "undo the last one" is the first row.
+
+    Ordering is by deleted_at rather than occurred_at: what matters here is
+    the order things were removed, not the order they happened.
+    """
+    with finance_db(db_path) as connection:
+        rows = connection.execute(
+            f"{_TRANSACTION_SELECT} WHERE t.deleted_at IS NOT NULL "
+            "ORDER BY t.deleted_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    return [Transaction(**dict(row)) for row in rows]
+
+
+def restore_transaction(
+    code: str,
+    db_path: str | Path | None = None,
+) -> Transaction:
+    """
+    Undo a soft delete, identified by the transaction's design code.
+
+    `delete_transaction` only sets `deleted_at`, and its own docstring
+    promises the record stays recoverable. This is what keeps that promise.
+    Clearing the column puts the row back into every total it used to count
+    towards, at its original amount and date - nothing is re-derived.
+    """
+    normalized = code_for_table(code, "transactions")
+
+    if get_transaction_by_code(normalized, db_path) is not None:
+        raise FinanceError(f"Transaction {normalized} is not deleted.")
+
+    deleted = get_deleted_transaction_by_code(normalized, db_path)
+    if deleted is None:
+        raise FinanceError(f"No transaction with code {normalized}.")
+
+    with finance_db(db_path) as connection:
+        connection.execute(
+            """
+            UPDATE transactions
+            SET deleted_at = NULL,
+                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+            WHERE code = ? AND deleted_at IS NOT NULL
+            """,
+            (normalized,),
+        )
+
+    restored = get_transaction_by_code(normalized, db_path)
+    if restored is None:
+        raise FinanceError(f"Transaction {normalized} could not be restored.")
+
+    return restored
+
+
 def list_transactions(
     period_start: date | None = None,
     period_end: date | None = None,
