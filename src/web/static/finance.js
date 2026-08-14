@@ -349,12 +349,70 @@ function renderTable(transactions) {
 }
 
 /*
+ * Choices for the editor's category select.
+ *
+ * A transaction can reference a category that has since been hidden, and
+ * /overview lists active ones only. Dropping the row's own category from
+ * the list would leave the select showing a different one, so saving an
+ * unrelated edit would silently recategorise the transaction. Keep it,
+ * and say it is hidden.
+ */
+function categoryOptions(current) {
+  const options = ((state.overview && state.overview.categories) || []).map(
+    (item) => ({
+      value: item.name,
+      label: item.emoji ? `${item.emoji} ${item.name}` : item.name,
+    }),
+  );
+
+  if (current && !options.some((option) => option.value === current)) {
+    options.unshift({ value: current, label: `${current} (hidden)` });
+  }
+
+  return options;
+}
+
+/* Same reasoning, restricted to one category's children. */
+function subcategoryOptions(category, current) {
+  const options = ((state.overview && state.overview.subcategories) || [])
+    .filter((sub) => sub.category === category)
+    .map((sub) => ({ value: sub.name, label: sub.name }));
+
+  if (current && !options.some((option) => option.value === current)) {
+    options.unshift({ value: current, label: `${current} (hidden)` });
+  }
+
+  return options;
+}
+
+function renderOptions(options, selected, emptyLabel) {
+  const rendered = emptyLabel === undefined
+    ? []
+    : [`<option value=""${selected ? "" : " selected"}>${escapeHtml(emptyLabel)}</option>`];
+
+  for (const option of options) {
+    rendered.push(
+      `<option value="${escapeHtml(option.value)}"${
+        option.value === selected ? " selected" : ""
+      }>${escapeHtml(option.label)}</option>`,
+    );
+  }
+
+  return rendered.join("");
+}
+
+/*
  * Inline transaction editor.
  *
  * Replaces the row in place rather than using window.prompt: prompt is
  * unavailable in sandboxed frames and several automation contexts, where
  * it throws instead of returning, and it cannot show the currency or
  * validate anything.
+ *
+ * Covers amount, category, subcategory, date/time and note. Direction,
+ * currency and account are deliberately left to the agent: they are rare
+ * corrections, and currency in particular re-rates the row, which is a
+ * bigger decision than a table row should offer in passing.
  */
 function startEdit(code) {
   const item = (state.visible || []).find((entry) => entry.code === code);
@@ -364,28 +422,102 @@ function startEdit(code) {
     `[data-edit="${CSS.escape(code)}"]`,
   ).closest("tr");
 
-  row.innerHTML = `<td class="transaction-code">${escapeHtml(code)}</td>
-      <td colspan="5">
-        <div class="manager-edit">
+  // occurred_at is naive local time, which is exactly what a
+  // datetime-local input wants. step=1 keeps the seconds: without it the
+  // browser drops them, so merely opening and saving the editor would
+  // quietly shift the timestamp.
+  const originalWhen = item.occurred_at;
+  const foreign = item.amount.currency !== item.base_amount.currency;
+
+  row.classList.add("is-editing");
+  row.innerHTML = `<td colspan="7">
+      <div class="row-editor">
+        <span class="row-editor-code">${escapeHtml(code)}</span>
+
+        <label class="field-amount">
+          <span>Amount (${escapeHtml(item.amount.currency)})</span>
           <input class="amount-input" type="text" inputmode="decimal"
-            value="${escapeHtml(item.amount.decimal)}"
-            aria-label="Amount in ${escapeHtml(item.amount.currency)}" />
-          <span class="card-note">${escapeHtml(item.amount.currency)}</span>
-          <input class="note-input" type="text" placeholder="Note"
-            value="${escapeHtml(item.note || "")}" aria-label="Note" />
+            value="${escapeHtml(item.amount.decimal)}" />
+        </label>
+
+        <label class="field-category">
+          <span>Category</span>
+          <select class="category-input">${
+            renderOptions(categoryOptions(item.category), item.category)
+          }</select>
+        </label>
+
+        <label class="field-subcategory">
+          <span>Subcategory</span>
+          <select class="subcategory-input">${
+            renderOptions(
+              subcategoryOptions(item.category, item.subcategory),
+              item.subcategory || "",
+              "None",
+            )
+          }</select>
+        </label>
+
+        <label class="field-when">
+          <span>When</span>
+          <input class="when-input" type="datetime-local" step="1"
+            value="${escapeHtml(originalWhen)}" />
+        </label>
+
+        <label class="field-note">
+          <span>Note</span>
+          <input class="note-input" type="text" placeholder="optional"
+            value="${escapeHtml(item.note || "")}" />
+        </label>
+
+        <p class="manager-warning" data-fx-warning hidden></p>
+
+        <div class="row-editor-actions">
+          <button class="primary-button" type="button" data-save-edit>Save</button>
+          <button class="ghost-button" type="button" data-cancel-edit>Cancel</button>
         </div>
-      </td>
-      <td>
-        <div class="row-actions">
-          <button class="row-button" type="button" data-save-edit>Save</button>
-          <button class="row-button" type="button" data-cancel-edit>Cancel</button>
-        </div>
-      </td>`;
+      </div>
+    </td>`;
 
   const amountInput = row.querySelector(".amount-input");
+  const categoryInput = row.querySelector(".category-input");
+  const subcategoryInput = row.querySelector(".subcategory-input");
+  const whenInput = row.querySelector(".when-input");
   const noteInput = row.querySelector(".note-input");
+  const fxWarning = row.querySelector("[data-fx-warning]");
+
   amountInput.focus();
   amountInput.select();
+
+  /*
+   * Moving a foreign-currency transaction to another date resolves a
+   * fresh rate for that date, so the MYR figure will move even when the
+   * amount is untouched. That is correct - the stored rate no longer
+   * describes the transaction - but it should not be a surprise.
+   */
+  function syncFxWarning() {
+    const changed = foreign && whenInput.value && whenInput.value !== originalWhen;
+    fxWarning.hidden = !changed;
+    fxWarning.textContent = changed
+      ? `Moving a ${item.amount.currency} transaction to another date fetches the `
+        + "exchange rate for the new date, so the MYR figure will change too."
+      : "";
+  }
+
+  whenInput.addEventListener("input", syncFxWarning);
+
+  // The old subcategory belongs to the old parent, and a subcategory
+  // cannot be reparented, so a category change always invalidates it.
+  categoryInput.addEventListener("change", () => {
+    const chosen = categoryInput.value;
+    const keep = chosen === item.category ? item.subcategory : null;
+
+    subcategoryInput.innerHTML = renderOptions(
+      subcategoryOptions(chosen, keep),
+      keep || "",
+      "None",
+    );
+  });
 
   row.querySelector("[data-cancel-edit]").addEventListener("click", refreshTable);
 
@@ -393,9 +525,24 @@ function startEdit(code) {
     const payload = {};
     const amount = amountInput.value.trim();
     const note = noteInput.value.trim();
+    const when = whenInput.value.trim();
+    const subcategory = subcategoryInput.value;
 
     if (amount && amount !== item.amount.decimal) payload.amount = amount;
     if (note !== (item.note || "")) payload.note = note || null;
+    if (categoryInput.value !== item.category) payload.category = categoryInput.value;
+
+    // Sending null clears the subcategory; omitting it leaves it alone.
+    if (subcategory !== (item.subcategory || "")) {
+      payload.subcategory = subcategory || null;
+    }
+
+    // A browser may hand back minute precision even with step=1, so pad
+    // to seconds the way the add form does before comparing.
+    if (when) {
+      const stamped = when.length === 16 ? `${when}:00` : when;
+      if (stamped !== originalWhen) payload.occurred_at = stamped;
+    }
 
     if (!Object.keys(payload).length) {
       await refreshTable();
@@ -408,9 +555,12 @@ function startEdit(code) {
     }));
   });
 
-  for (const input of [amountInput, noteInput]) {
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") row.querySelector("[data-save-edit]").click();
+  for (const field of [amountInput, categoryInput, subcategoryInput, whenInput, noteInput]) {
+    field.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        row.querySelector("[data-save-edit]").click();
+      }
       if (event.key === "Escape") refreshTable();
     });
   }

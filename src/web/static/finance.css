@@ -687,6 +687,86 @@ html[data-mode="dark"] body.finance-body {
   font-weight: 600;
 }
 
+/*
+ * Editing row.
+ *
+ * The table sets `white-space: nowrap` so ordinary rows stay on one
+ * line; the editor needs the opposite, because its fields wrap onto a
+ * second line on a narrow screen.
+ */
+.transaction-table tr.is-editing td {
+  white-space: normal;
+  background: var(--surface-soft);
+  padding: 12px 10px;
+}
+
+.row-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  align-items: flex-end;
+}
+
+.row-editor-code {
+  flex: 0 0 auto;
+  align-self: center;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.row-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.row-editor label > span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.row-editor input,
+.row-editor select {
+  padding: 6px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  min-width: 0;
+}
+
+.row-editor .field-amount { flex: 0 0 120px; }
+.row-editor .field-category { flex: 1 1 150px; }
+.row-editor .field-subcategory { flex: 1 1 150px; }
+.row-editor .field-when { flex: 0 0 auto; }
+.row-editor .field-note { flex: 1 1 200px; }
+
+.row-editor .amount-input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-editor .manager-warning {
+  flex: 1 1 100%;
+  order: 1;
+}
+
+.row-editor-actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+@media (max-width: 700px) {
+  .row-editor-actions { margin-left: 0; }
+}
+
 /* --- Responsive --------------------------------------------------- */
 
 @media (max-width: 900px) {
