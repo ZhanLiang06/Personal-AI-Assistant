@@ -71,6 +71,32 @@ export function dayNumber(iso) {
   return Number(iso.slice(8, 10));
 }
 
+/** The heading over a day's transactions: "Today", or "Fri 15 Aug". */
+export function longDay(iso) {
+  const date = iso.slice(0, 10);
+  const now = new Date();
+
+  // Compared through localDateTimeValue rather than toISOString, which would
+  // shift the boundary by the UTC offset and call last night "yesterday".
+  if (date === localDateTimeValue(now).slice(0, 10)) return "today";
+  if (date === localDateTimeValue(new Date(now.getTime() - 86_400_000)).slice(0, 10)) {
+    return "yesterday";
+  }
+
+  return new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+/** "21:02". Transactions recorded without a time land at midnight, and saying
+    so is more useful than printing 00:00 as though it were meant. */
+export function timeOfDay(iso) {
+  const time = iso.slice(11, 16);
+  return time === "00:00" || time === "" ? "—" : time;
+}
+
 export function relativeDay(iso) {
   const then = new Date(iso);
   const today = new Date();

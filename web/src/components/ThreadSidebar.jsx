@@ -45,9 +45,66 @@ function ThreadRow({ thread, active, onOpen, onDelete }) {
   );
 }
 
+const SECTIONS = [
+  { href: "/", label: "chat", glyph: "▚", hint: "ask, plan, recall" },
+  { href: "/finance", label: "finance", glyph: "▤", hint: "spend, budgets, goals" },
+];
+
+/** Where you are in the app, above the list of what you have said. */
+function SectionNav({ path, navigate, theme }) {
+  return (
+    <nav className="mb-3" aria-label="Sections">
+      <p className="label mb-1.5 px-1">{theme === "edgerunner" ? "sectors" : "sections"}</p>
+      <div className="space-y-1">
+        {SECTIONS.map((section) => {
+          const active = path === section.href;
+          return (
+            <a
+              key={section.href}
+              {...routeLinkProps(section.href, navigate)}
+              aria-current={active ? "page" : undefined}
+              className="flex items-center gap-2.5 px-2 py-1.5"
+              style={{
+                background: active ? "var(--surface-hover)" : "transparent",
+                boxShadow: active ? "inset 2px 0 0 var(--accent)" : "none",
+                color: active ? "var(--text)" : "var(--muted)",
+                transition: "background 120ms var(--ease), color 120ms var(--ease)",
+              }}
+            >
+              <span
+                className="data grid h-6 w-6 shrink-0 place-items-center text-[11px]"
+                style={{
+                  border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
+                  color: active ? "var(--accent)" : "var(--faint)",
+                }}
+                aria-hidden="true"
+              >
+                {section.glyph}
+              </span>
+              <span className="min-w-0">
+                <span
+                  className="data block text-[11px] uppercase"
+                  style={{ letterSpacing: "0.12em" }}
+                >
+                  {section.label}
+                </span>
+                <span className="block truncate text-[11px]" style={{ color: "var(--faint)" }}>
+                  {section.hint}
+                </span>
+              </span>
+            </a>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 function SidebarBody({ threads, activeId, onOpen, onDelete, onNew, navigate, path, theme }) {
   return (
     <>
+      <SectionNav path={path} navigate={navigate} theme={theme} />
+
       <button type="button" onClick={onNew} className="btn btn--accent mb-3 w-full">
         new thread
       </button>
@@ -72,35 +129,6 @@ function SidebarBody({ threads, activeId, onOpen, onDelete, onNew, navigate, pat
         )}
       </ul>
 
-      <nav className="mt-3 border-t pt-3" style={{ borderColor: "var(--line)" }}>
-        {[
-          { href: "/", label: "chat" },
-          { href: "/finance", label: "finance" },
-        ].map((item) => {
-          const active = path === item.href;
-          return (
-            <a
-              key={item.href}
-              {...routeLinkProps(item.href, navigate)}
-              className="data flex items-center gap-2 px-3 py-2 text-[11px] uppercase"
-              style={{
-                letterSpacing: "0.12em",
-                color: active ? "var(--accent)" : "var(--muted)",
-              }}
-            >
-              <span
-                className="inline-block h-2 w-2"
-                style={{
-                  background: active ? "var(--accent)" : "transparent",
-                  border: `1px solid ${active ? "var(--accent)" : "var(--line-strong)"}`,
-                }}
-                aria-hidden="true"
-              />
-              {item.label}
-            </a>
-          );
-        })}
-      </nav>
     </>
   );
 }
@@ -140,7 +168,7 @@ export default function ThreadSidebar({ open, onClose, ...props }) {
             aria-label="Threads"
           >
             <div className="mb-3 flex justify-end">
-              <button type="button" onClick={onClose} className="btn px-2 py-1" aria-label="Close">
+              <button type="button" onClick={onClose} className="btn btn--sm" aria-label="Close">
                 ✕
               </button>
             </div>

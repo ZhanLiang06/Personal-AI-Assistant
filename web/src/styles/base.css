@@ -122,6 +122,34 @@
   --scrim: rgb(233 228 242 / 0.8);
 }
 
+/* --- metrics shared by both skins ----------------------------------------
+   A theme switch changes the type families, and different families have
+   different x-heights, cap-heights and advance widths. Left alone, that moves
+   every control and rule on the page. These are the numbers both skins are
+   held to, so switching skin repaints the UI without relaying it out.
+
+   `font-size-adjust` is what makes it hold: the `ex-height` form pins apparent
+   text size for the proportional faces, and the `ch-width` form pins the
+   character advance for the monospaced ones - which is what actually sets the
+   width of every label, button and figure. Browsers without the two-value form
+   simply fall back to today's behaviour.
+
+   The three ratios below are telemetry's own fonts, measured off the shipped
+   files rather than guessed, which makes telemetry render exactly as it always
+   did and edgerunner resolve to the same metrics. Guessing here is not a small
+   error: an over-stated cap-height silently scales the display face up until a
+   figure that fitted on one line wraps onto two.
+   -------------------------------------------------------------------------- */
+:root {
+  --control-h: 2.125rem; /* 34px: every button, input and select */
+  --control-h-sm: 1.75rem; /* 28px: the compact ones in card headers */
+  --label-size: 10px;
+  --label-line: 1.4;
+  --body-ex: 0.515; /* IBM Plex Sans x-height; Zen Kaku's is 0.48 */
+  --data-ch: 0.6; /* IBM Plex Mono advance; Martian Mono's is 0.7 */
+  --display-cap: 0.69; /* Archivo cap-height; Chakra Petch's is 0.665 */
+}
+
 /* --- per-theme typography and furniture ---------------------------------- */
 [data-theme="telemetry"] {
   --font-display: "Archivo Variable", system-ui, sans-serif;
@@ -145,7 +173,9 @@
   --display-stretch: 100%;
   --display-tracking: 0.005em;
   --display-style: italic;
-  --label-tracking: 0.22em;
+  /* Martian Mono is wide, so the extra tracking that gives telemetry's labels
+     their spread would push edgerunner's past the same box. It gets less. */
+  --label-tracking: 0.14em;
   --panel-clip: polygon(
     0 0,
     calc(100% - 14px) 0,
@@ -203,6 +233,7 @@ body {
   color: var(--text);
   font-family: var(--font-body);
   font-size: 15px;
+  font-size-adjust: ex-height var(--body-ex);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
@@ -227,28 +258,30 @@ body {
   font-stretch: var(--display-stretch);
   letter-spacing: var(--display-tracking);
   font-style: var(--display-style);
+  font-size-adjust: cap-height var(--display-cap);
   font-weight: 700;
   line-height: 1.02;
 }
 
 .data {
   font-family: var(--font-data);
+  font-size-adjust: ch-width var(--data-ch);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
 
-/* Micro label: the uppercase tag that names a region. */
+/* Micro label: the uppercase tag that names a region. One size in both skins,
+   with a fixed line box, so a card header is the same height either way. */
 .label {
   font-family: var(--font-data);
-  font-size: 10px;
+  font-size: var(--label-size);
+  font-size-adjust: ch-width var(--data-ch);
   font-weight: 600;
+  line-height: var(--label-line);
   letter-spacing: var(--label-tracking);
   text-transform: uppercase;
   color: var(--faint);
-}
-
-[data-theme="edgerunner"] .label {
-  font-size: 9px;
+  display: block;
 }
 
 /* Panel: the one surface primitive. Its silhouette is the fastest read of
@@ -260,8 +293,11 @@ body {
   position: relative;
 }
 
+/* The border stays 1px here rather than becoming `none`: the gradient edge is
+   painted into it, and dropping it would shrink every panel by 2px on theme
+   switch - the exact kind of movement this file is trying to prevent. */
 [data-theme="edgerunner"] .panel {
-  border: none;
+  border-color: transparent;
   background:
     linear-gradient(var(--surface), var(--surface)) padding-box,
     linear-gradient(150deg, var(--line-strong), var(--line) 45%) border-box;
@@ -331,16 +367,65 @@ body {
 .btn {
   font-family: var(--font-data);
   font-size: 11px;
+  font-size-adjust: ch-width var(--data-ch);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 0.55rem 0.9rem;
+  /* Height comes from --control-h, not from the line box, so a taller face
+     cannot make the button taller. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  min-height: var(--control-h);
+  line-height: 1;
+  padding: 0 0.9rem;
   border: 1px solid var(--line);
   background: var(--surface-2);
   color: var(--text);
   cursor: pointer;
+  white-space: nowrap;
   transition: background 140ms var(--ease), color 140ms var(--ease),
     border-color 140ms var(--ease);
+}
+
+/* Card-header buttons and the like: shorter, but still one fixed height. */
+.btn--sm {
+  min-height: var(--control-h-sm);
+  padding: 0 0.6rem;
+  font-size: 10px;
+}
+
+/* Form controls answer to the same height as the buttons beside them. */
+.control {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-size-adjust: ex-height var(--body-ex);
+  line-height: 1;
+  height: var(--control-h);
+  width: 100%;
+  padding: 0 0.6rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  transition: border-color 140ms var(--ease);
+}
+
+.control:hover {
+  border-color: var(--line-strong);
+}
+
+.control--sm {
+  height: var(--control-h-sm);
+  font-size: 13px;
+  padding: 0 0.45rem;
+}
+
+textarea.control {
+  height: auto;
+  line-height: 1.5;
+  padding: 0.5rem 0.6rem;
+  resize: vertical;
 }
 
 .btn:hover {
@@ -372,6 +457,114 @@ body {
 
 [data-theme="edgerunner"] .btn--accent:hover {
   box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* The floating compose button, bottom-left of the finance page. Square in
+   telemetry, notched in edgerunner, identical footprint in both. */
+.fab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 3rem;
+  padding: 0 1.1rem;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-data);
+  font-size: 11px;
+  font-size-adjust: ch-width var(--data-ch);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 160ms var(--ease), box-shadow 160ms var(--ease);
+}
+
+.fab:hover {
+  transform: translateY(-2px);
+}
+
+[data-theme="edgerunner"] .fab {
+  clip-path: polygon(
+    0 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% 100%,
+    10px 100%,
+    0 calc(100% - 10px)
+  );
+}
+
+[data-theme="edgerunner"] .fab:hover {
+  box-shadow: 0 0 26px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+/* Segmented control: the chat/finance tabs in the header rail. */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.seg > * {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: var(--control-h-sm);
+  padding: 0 0.7rem;
+  font-family: var(--font-data);
+  font-size: 10px;
+  font-size-adjust: ch-width var(--data-ch);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--faint);
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+
+.seg > [aria-current="page"],
+.seg > [aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Transaction rows. A row is a button-ish surface, so it needs a resting and a
+   hovered state that do not change its metrics. */
+.tx-row {
+  border-bottom: 1px solid var(--line);
+  transition: background 120ms var(--ease);
+}
+
+.tx-row:hover {
+  background: var(--surface-2);
+}
+
+.tx-actions {
+  opacity: 0;
+  transition: opacity 120ms var(--ease);
+}
+
+.tx-row:hover .tx-actions,
+.tx-row:focus-within .tx-actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .tx-actions {
+    opacity: 1;
+  }
+}
+
+/* The wordmark is the one place where a family's advance width is visible and
+   unavoidable - "Kairos" is 91px in Archivo at 118% and 75px in Chakra Petch.
+   Reserving the wider box keeps everything to its right from sliding on a
+   theme switch. */
+.wordmark {
+  min-width: 6rem;
 }
 
 /* Glitch text, edgerunner only. Used once, on the wordmark. */
@@ -467,8 +660,24 @@ body {
   }
 }
 
+/* Toasts arrive from the right edge they sit against, not from the bottom. */
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .animate-rise {
   animation: rise 320ms var(--ease) both;
+}
+
+.animate-slide-in {
+  animation: slide-in 260ms var(--ease) both;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import TransactionDialog from "../components/TransactionDialog.jsx";
 import { useToast } from "../components/Toast.jsx";
 import {
   createCategory,
-  createTransaction,
   explainPeriod,
   getOverview,
   listTransactions,
@@ -20,7 +20,7 @@ import {
   dayNumber,
   display,
   displayMinor,
-  localDateTimeValue,
+  longDay,
   minor,
   monthKey,
   monthLabel,
@@ -28,6 +28,7 @@ import {
   ratio,
   shiftMonth,
   shortDate,
+  timeOfDay,
 } from "../lib/format.js";
 
 /* ==========================================================================
@@ -67,17 +68,14 @@ function Field({ label, children, wide }) {
   );
 }
 
-const controlStyle = {
-  background: "var(--surface-2)",
-  border: "1px solid var(--line)",
-  color: "var(--text)",
-  padding: "0.5rem 0.6rem",
-  fontSize: "14px",
-  width: "100%",
-};
-
-const Input = (props) => <input {...props} style={{ ...controlStyle, ...props.style }} />;
-const Select = (props) => <select {...props} style={{ ...controlStyle, ...props.style }} />;
+// Controls take their metrics from .control in base.css rather than from inline
+// styles, so they keep one height whichever skin is on.
+const Input = ({ className = "", ...props }) => (
+  <input {...props} className={`control ${className}`} />
+);
+const Select = ({ className = "", ...props }) => (
+  <select {...props} className={`control ${className}`} />
+);
 
 /* ==========================================================================
    Month totals
@@ -483,123 +481,6 @@ function Goal({ goal, summary, month, onChanged }) {
 }
 
 /* ==========================================================================
-   Record a transaction
-   ========================================================================== */
-
-const EMPTY_ENTRY = {
-  amount: "",
-  currency: "MYR",
-  direction: "expense",
-  category: "",
-  subcategory: "",
-  account: "",
-  occurred_at: "",
-  note: "",
-};
-
-function RecordForm({ overview, onChanged }) {
-  const [entry, setEntry] = useState(EMPTY_ENTRY);
-  const [error, setError] = useState(null);
-
-  const set = (key) => (event) => setEntry((current) => ({ ...current, [key]: event.target.value }));
-
-  const subcategories = overview.subcategories.filter((item) => item.category === entry.category);
-
-  async function submit(event) {
-    event.preventDefault();
-    setError(null);
-    try {
-      await createTransaction({
-        amount: entry.amount,
-        currency: entry.currency.toUpperCase(),
-        direction: entry.direction,
-        category: entry.category,
-        subcategory: entry.subcategory || null,
-        account: entry.account || undefined,
-        occurred_at: entry.occurred_at || null,
-        note: entry.note || null,
-      });
-      setEntry({ ...EMPTY_ENTRY, occurred_at: "" });
-      onChanged();
-    } catch (failure) {
-      setError(failure.message);
-    }
-  }
-
-  return (
-    <Card title="record a transaction" tick="var(--accent)">
-      <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
-        <Field label="amount">
-          <Input value={entry.amount} onChange={set("amount")} inputMode="decimal" placeholder="12.34" required />
-        </Field>
-        <Field label="currency">
-          <Input value={entry.currency} onChange={set("currency")} maxLength={3} required />
-        </Field>
-        <Field label="direction">
-          <Select value={entry.direction} onChange={set("direction")}>
-            <option value="expense">Expense</option>
-            <option value="income">Income</option>
-          </Select>
-        </Field>
-        <Field label="category">
-          <Select value={entry.category} onChange={set("category")} required>
-            <option value="">Choose one</option>
-            {overview.categories.map((item) => (
-              <option key={item.name} value={item.name}>
-                {item.emoji ? `${item.emoji} ` : ""}
-                {item.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="subcategory">
-          <Select value={entry.subcategory} onChange={set("subcategory")} disabled={subcategories.length === 0}>
-            <option value="">None</option>
-            {subcategories.map((item) => (
-              <option key={item.name} value={item.name}>
-                {item.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="account">
-          <Select value={entry.account} onChange={set("account")}>
-            <option value="">Default</option>
-            {overview.accounts.map((item) => (
-              <option key={item.name} value={item.name}>
-                {item.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="when">
-          <Input
-            type="datetime-local"
-            value={entry.occurred_at}
-            onChange={set("occurred_at")}
-            max={localDateTimeValue()}
-          />
-        </Field>
-        <Field label="note" wide>
-          <Input value={entry.note} onChange={set("note")} placeholder="optional" />
-        </Field>
-
-        <div className="sm:col-span-2">
-          <button type="submit" className="btn btn--accent">
-            record
-          </button>
-          {error && (
-            <span className="data ml-3 text-[11px]" style={{ color: "var(--pace-over)" }}>
-              {error}
-            </span>
-          )}
-        </div>
-      </form>
-    </Card>
-  );
-}
-
-/* ==========================================================================
    Categories
    ========================================================================== */
 
@@ -682,26 +563,159 @@ function CategoryManager({ categories, onChanged }) {
    Transactions
    ========================================================================== */
 
-function TransactionTable({ rows, loading, search, onSearch, filter, onFilter, categories, onDelete }) {
+/** Group a page of transactions into the days they happened on, in order. */
+function byDay(rows) {
+  const days = new Map();
+  for (const row of rows) {
+    const key = row.occurred_at.slice(0, 10);
+    if (!days.has(key)) days.set(key, []);
+    days.get(key).push(row);
+  }
+  return [...days.entries()];
+}
+
+function TransactionRow({ row, emoji, showAccount, onEdit, onDelete }) {
+  const income = row.direction === "income";
+  const converted = row.amount.currency !== row.base_amount.currency;
+
+  return (
+    <li
+      className="tx-row grid items-center gap-3 py-2.5"
+      style={{ gridTemplateColumns: "1.75rem minmax(0,1fr) auto auto" }}
+    >
+      <span
+        className="grid h-7 w-7 shrink-0 place-items-center text-[14px]"
+        style={{
+          background: "var(--surface-2)",
+          border: "1px solid var(--line)",
+          color: "var(--muted)",
+        }}
+        aria-hidden="true"
+      >
+        {emoji || (income ? "↓" : "↑")}
+      </span>
+
+      <span className="min-w-0">
+        <span className="flex items-baseline gap-1.5">
+          <span className="truncate text-[14px]">{row.category}</span>
+          {row.subcategory && (
+            <span className="truncate text-[12px]" style={{ color: "var(--faint)" }}>
+              / {row.subcategory}
+            </span>
+          )}
+        </span>
+        <span className="flex items-baseline gap-2">
+          <span className="data shrink-0 text-[10px]" style={{ color: "var(--faint)" }}>
+            {timeOfDay(row.occurred_at)}
+          </span>
+          {row.note && (
+            <span className="truncate text-[12px]" style={{ color: "var(--muted)" }}>
+              {row.note}
+            </span>
+          )}
+          {showAccount && row.account && (
+            <span className="data shrink-0 text-[10px]" style={{ color: "var(--faint)" }}>
+              · {row.account}
+            </span>
+          )}
+        </span>
+      </span>
+
+      <span className="text-right">
+        <span
+          className="data block text-[13px]"
+          style={{ color: income ? "var(--pace-good)" : "var(--text)" }}
+        >
+          {income ? "+" : "−"}
+          {bare(row.amount)}
+        </span>
+        {/* Only shown when the row was entered in another currency: otherwise
+            it is the base currency the card header already names, repeated
+            once per row. */}
+        {converted && (
+          <span className="data block text-[10px]" style={{ color: "var(--faint)" }}>
+            {row.amount.currency} → {row.base_amount.currency} {bare(row.base_amount)}
+          </span>
+        )}
+      </span>
+
+      {/* Both actions sit in the same slot and share one reveal, so the row's
+          width never depends on whether you are hovering it. */}
+      <span className="tx-actions flex w-[4.5rem] shrink-0 justify-end gap-1">
+        <button
+          type="button"
+          className="btn btn--sm"
+          onClick={() => onEdit(row)}
+          aria-label={`Edit transaction ${row.code}`}
+        >
+          edit
+        </button>
+        <button
+          type="button"
+          className="btn btn--sm"
+          onClick={() => onDelete(row)}
+          aria-label={`Delete transaction ${row.code}`}
+          style={{ color: "var(--pace-over)" }}
+        >
+          ✕
+        </button>
+      </span>
+    </li>
+  );
+}
+
+function TransactionList({
+  rows,
+  loading,
+  search,
+  onSearch,
+  filter,
+  onFilter,
+  categories,
+  onEdit,
+  onDelete,
+  onAdd,
+}) {
+  const emojiFor = useMemo(() => {
+    const lookup = new Map(categories.map((item) => [item.name, item.emoji]));
+    return (name) => lookup.get(name) ?? "";
+  }, [categories]);
+
+  const groups = useMemo(() => byDay(rows), [rows]);
+
+  // Naming the account on every row is only informative when there is more
+  // than one in play; otherwise it is the same word thirty-four times.
+  const showAccount = useMemo(
+    () => new Set(rows.map((row) => row.account)).size > 1,
+    [rows],
+  );
+
   return (
     <Card
       title="transactions"
+      note={
+        rows.length > 0
+          ? `${rows.length} shown · hover a row to edit or delete it`
+          : undefined
+      }
       tick="var(--line-strong)"
       action={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Input
             type="search"
+            className="control--sm data"
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             placeholder="Search note or code"
             aria-label="Search transactions"
-            style={{ width: "11rem", padding: "0.35rem 0.5rem", fontSize: "13px" }}
+            style={{ width: "11rem" }}
           />
           <Select
+            className="control--sm"
             value={filter}
             onChange={(e) => onFilter(e.target.value)}
             aria-label="Filter by category"
-            style={{ width: "9rem", padding: "0.35rem 0.5rem", fontSize: "13px" }}
+            style={{ width: "9rem" }}
           >
             <option value="">All categories</option>
             {categories.map((item) => (
@@ -718,75 +732,59 @@ function TransactionTable({ rows, loading, search, onSearch, filter, onFilter, c
           Loading…
         </p>
       ) : rows.length === 0 ? (
-        <p className="text-[13px]" style={{ color: "var(--faint)" }}>
-          Nothing matches. Record one above, or ask the assistant to.
-        </p>
+        <div className="py-6 text-center">
+          <p className="text-[14px]" style={{ color: "var(--muted)" }}>
+            {search || filter ? "Nothing matches those filters." : "No transactions this month yet."}
+          </p>
+          <button type="button" className="btn btn--accent mt-3" onClick={onAdd}>
+            add one
+          </button>
+          <p className="data mt-2 text-[10px]" style={{ color: "var(--faint)" }}>
+            or just tell the assistant what you spent
+          </p>
+        </div>
       ) : (
-        <div className="scroll-thin -mx-4 overflow-x-auto px-4">
-          <table className="w-full min-w-[36rem] border-collapse">
-            <thead>
-              <tr>
-                {["date", "category", "note", "amount", "base", ""].map((head, index) => (
-                  <th
-                    key={head || index}
-                    scope="col"
-                    className="label pb-2 text-left"
-                    style={{
-                      borderBottom: "1px solid var(--line)",
-                      textAlign: index >= 3 && index <= 4 ? "right" : "left",
-                    }}
-                  >
-                    {head}
-                  </th>
+        <div className="space-y-4">
+          {groups.map(([day, entries]) => (
+            <div key={day}>
+              <div
+                className="mb-1 flex items-baseline justify-between border-b pb-1"
+                style={{ borderColor: "var(--line-strong)" }}
+              >
+                <span className="label" style={{ color: "var(--muted)" }}>
+                  {longDay(day)}
+                </span>
+                <span className="data text-[11px]" style={{ color: "var(--faint)" }}>
+                  {displayMinor(dayExpense(entries), entries[0].base_amount.currency)}
+                </span>
+              </div>
+
+              <ul>
+                {entries.map((row) => (
+                  <TransactionRow
+                    key={row.code}
+                    row={row}
+                    emoji={emojiFor(row.category)}
+                    showAccount={showAccount}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                  />
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.code} style={{ borderBottom: "1px solid var(--line)" }}>
-                  <td className="data py-2 text-[11px]" style={{ color: "var(--muted)" }}>
-                    {shortDate(row.occurred_at)}
-                  </td>
-                  <td className="py-2 text-[13px]">
-                    {row.category}
-                    {row.subcategory && (
-                      <span style={{ color: "var(--faint)" }}> · {row.subcategory}</span>
-                    )}
-                  </td>
-                  <td className="max-w-[14rem] truncate py-2 text-[13px]" style={{ color: "var(--muted)" }}>
-                    {row.note ?? ""}
-                  </td>
-                  <td
-                    className="data py-2 text-right text-[12px]"
-                    style={{
-                      color: row.direction === "income" ? "var(--pace-good)" : "var(--text)",
-                    }}
-                  >
-                    {row.direction === "income" ? "+" : "−"}
-                    {bare(row.amount)}
-                  </td>
-                  <td className="data py-2 text-right text-[11px]" style={{ color: "var(--faint)" }}>
-                    {row.amount.currency === row.base_amount.currency ? "" : bare(row.base_amount)}
-                  </td>
-                  <td className="py-2 text-right">
-                    <button
-                      type="button"
-                      className="data text-[10px]"
-                      style={{ color: "var(--faint)" }}
-                      onClick={() => onDelete(row)}
-                      aria-label={`Delete transaction ${row.code}`}
-                    >
-                      ✕
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </ul>
+            </div>
+          ))}
         </div>
       )}
     </Card>
   );
+}
+
+/** What a day's expenses came to. Summed in base currency, because a day can
+    hold rows entered in more than one and those cannot simply be added. */
+function dayExpense(entries) {
+  return entries
+    .filter((row) => row.direction !== "income")
+    .reduce((sum, row) => sum + minor(row.base_amount), 0);
 }
 
 /* ==========================================================================
@@ -814,6 +812,29 @@ export default function FinancePage({ theme }) {
   // so adding a third deletable thing later means describing it, not rebuilding
   // the modal.
   const [pending, setPending] = useState(null);
+
+  // `null` closed, `{ row: null }` recording a new one, `{ row }` correcting
+  // that one. One piece of state, so the sheet cannot be in two of those at
+  // once and cannot be open with nothing to show.
+  const [editor, setEditor] = useState(null);
+
+  const openNew = useCallback(() => setEditor({ row: null }), []);
+  const openEdit = useCallback((row) => setEditor({ row }), []);
+
+  const onSaved = useCallback(
+    (saved, mode) => {
+      setEditor(null);
+      toast.show({
+        message:
+          mode === "create"
+            ? `Recorded ${bare(saved.amount)} on ${saved.category}.`
+            : `Updated ${saved.code}.`,
+        tone: "good",
+      });
+      refresh();
+    },
+    [toast, refresh],
+  );
 
   const askDeleteTransaction = useCallback((row) => {
     setPending({
@@ -1011,7 +1032,7 @@ export default function FinancePage({ theme }) {
               </div>
             </div>
 
-            <TransactionTable
+            <TransactionList
               rows={rows}
               loading={tableLoading}
               search={search}
@@ -1019,16 +1040,37 @@ export default function FinancePage({ theme }) {
               filter={filter}
               onFilter={setFilter}
               categories={overview.categories}
+              onEdit={openEdit}
               onDelete={askDeleteTransaction}
+              onAdd={openNew}
             />
 
-            <div className="grid gap-3 lg:grid-cols-2">
-              <RecordForm overview={overview} onChanged={refresh} />
-              <CategoryManager categories={overview.categories} onChanged={refresh} />
-            </div>
+            <CategoryManager categories={overview.categories} onChanged={refresh} />
           </div>
         )}
       </div>
+
+      {/* Bottom left, clear of the content column's scroll. It is the only way
+          to record a transaction by hand now, so it stays put rather than
+          living at the far end of a long page. */}
+      <button
+        type="button"
+        className="fab fixed bottom-5 left-5 z-40 lg:left-[16.25rem]"
+        onClick={openNew}
+      >
+        <span className="text-[18px] leading-none">+</span>
+        <span className="hidden sm:inline">
+          {theme === "edgerunner" ? "log entry" : "add transaction"}
+        </span>
+      </button>
+
+      <TransactionDialog
+        open={editor !== null}
+        transaction={editor?.row ?? null}
+        overview={overview}
+        onClose={() => setEditor(null)}
+        onSaved={onSaved}
+      />
 
       <ConfirmDialog
         open={pending !== null}

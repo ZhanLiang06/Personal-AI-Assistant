@@ -1,8 +1,14 @@
 import { ContextRail } from "./ContextStrip.jsx";
+import { routeLinkProps } from "../lib/router.js";
 
 const THEMES = [
   { id: "telemetry", short: "TLM", full: "telemetry" },
   { id: "edgerunner", short: "EDG", full: "edgerunner" },
+];
+
+const SECTIONS = [
+  { href: "/", label: "chat", glyph: "▚" },
+  { href: "/finance", label: "finance", glyph: "▤" },
 ];
 
 export default function HeaderRail({
@@ -11,6 +17,8 @@ export default function HeaderRail({
   setTheme,
   toggleMode,
   rail,
+  path,
+  navigate,
   onOpenThreads,
   onNewThread,
   children,
@@ -23,7 +31,7 @@ export default function HeaderRail({
       <button
         type="button"
         onClick={onOpenThreads}
-        className="btn px-2.5 py-1.5 lg:hidden"
+        className="btn btn--sm lg:hidden"
         aria-label="Open threads"
       >
         ☰
@@ -39,7 +47,7 @@ export default function HeaderRail({
           event.preventDefault();
           onNewThread();
         }}
-        className="glitch flex items-baseline gap-2"
+        className="glitch wordmark flex items-baseline gap-2"
         aria-label="New thread"
       >
         <span
@@ -55,16 +63,30 @@ export default function HeaderRail({
         )}
       </a>
 
-      {rail && <div className="animate-rise ml-2">{rail}</div>}
+      {/* Section tabs live in the header, not only in the sidebar, because the
+          sidebar is a drawer below `lg` - finance was otherwise two taps away
+          on a phone and invisible until you found the hamburger. */}
+      <nav className="seg ml-1 sm:ml-3" aria-label="Sections">
+        {SECTIONS.map((section) => {
+          const active = section.href === path;
+          return (
+            <a
+              key={section.href}
+              {...routeLinkProps(section.href, navigate)}
+              aria-current={active ? "page" : undefined}
+            >
+              <span aria-hidden="true">{section.glyph}</span>
+              <span className="hidden sm:inline">{section.label}</span>
+            </a>
+          );
+        })}
+      </nav>
+
+      {rail && <div className="animate-rise ml-2 hidden md:block">{rail}</div>}
       {children}
 
       <div className="ml-auto flex items-center gap-2">
-        <div
-          className="flex border"
-          style={{ borderColor: "var(--line)" }}
-          role="group"
-          aria-label="Visual theme"
-        >
+        <div className="seg" role="group" aria-label="Visual theme">
           {THEMES.map((option) => {
             const active = option.id === theme;
             return (
@@ -73,13 +95,6 @@ export default function HeaderRail({
                 type="button"
                 onClick={() => setTheme(option.id)}
                 aria-pressed={active}
-                className="data px-2.5 py-1.5 text-[10px] uppercase"
-                style={{
-                  letterSpacing: "0.12em",
-                  background: active ? "var(--accent)" : "transparent",
-                  color: active ? "var(--accent-ink)" : "var(--faint)",
-                  transition: "background 140ms var(--ease), color 140ms var(--ease)",
-                }}
               >
                 <span className="hidden sm:inline">{option.full}</span>
                 <span className="sm:hidden">{option.short}</span>
@@ -91,7 +106,7 @@ export default function HeaderRail({
         <button
           type="button"
           onClick={toggleMode}
-          className="btn px-2.5 py-1.5"
+          className="btn btn--sm"
           aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
           {mode === "dark" ? "☾" : "☀"}

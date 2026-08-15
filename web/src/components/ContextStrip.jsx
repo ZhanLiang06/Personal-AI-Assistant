@@ -113,17 +113,20 @@ function SpendTile({ overview, weekSpend, error, theme, navigate }) {
 
   const top = summary?.by_category?.[0];
 
+  // The whole tile is the way into /finance, not a small link in its corner:
+  // this reading is the reason you would go there.
   return (
-    <section className="panel panel--ticked p-4" style={{ "--tick": paceColor }}>
+    <a
+      {...routeLinkProps("/finance", navigate)}
+      className="panel panel--ticked block p-4"
+      style={{ "--tick": paceColor }}
+      aria-label="Open finance"
+    >
       <header className="mb-3 flex items-baseline justify-between">
         <h2 className="label">{theme === "edgerunner" ? "spend // month" : "this month"}</h2>
-        <a
-          {...routeLinkProps("/finance", navigate)}
-          className="data text-[10px]"
-          style={{ color: "var(--faint)" }}
-        >
+        <span className="data text-[10px]" style={{ color: "var(--faint)" }}>
           open finance →
-        </a>
+        </span>
       </header>
 
       {error ? (
@@ -185,7 +188,7 @@ function SpendTile({ overview, weekSpend, error, theme, navigate }) {
           )}
         </>
       )}
-    </section>
+    </a>
   );
 }
 

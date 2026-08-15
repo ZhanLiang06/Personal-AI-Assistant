@@ -95,6 +95,8 @@ export default function App() {
           mode={mode}
           setTheme={setTheme}
           toggleMode={toggleMode}
+          path={path}
+          navigate={navigate}
           onOpenThreads={() => setDrawerOpen(true)}
           onNewThread={newThread}
           rail={

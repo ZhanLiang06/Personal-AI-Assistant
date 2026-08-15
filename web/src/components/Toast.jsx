@@ -60,15 +60,18 @@ export function ToastProvider({ children }) {
     <ToastContext.Provider value={value}>
       {children}
 
+      {/* Top right, and clear of the sticky header rail rather than tucked
+          under it - `top-20` is the rail's height plus a gutter, so a toast
+          never covers the controls it is reporting on. */}
       <div
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[60] flex flex-col items-center gap-2 p-4 sm:items-end"
+        className="pointer-events-none fixed inset-x-0 top-20 z-[60] flex flex-col items-center gap-2 px-4 sm:items-end"
         role="status"
         aria-live="polite"
       >
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className="panel panel--ticked animate-rise pointer-events-auto flex w-full max-w-sm items-center gap-3 px-3 py-2.5"
+            className="panel panel--ticked animate-slide-in pointer-events-auto flex w-full max-w-sm items-center gap-3 px-3 py-2.5"
             style={{ "--tick": TONE_COLOR[toast.tone], boxShadow: "var(--shadow)" }}
           >
             <span className="flex-1 text-[13px]">{toast.message}</span>
