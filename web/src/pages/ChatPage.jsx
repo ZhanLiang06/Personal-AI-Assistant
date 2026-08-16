@@ -26,7 +26,9 @@ function turnsFromHistory(events) {
       pendingTools = [];
       continue;
     }
-    if (event.event_type === "tool_call") {
+    // Calls and their results are separate rows in storage; the trace builder
+    // pairs them back up, so both have to reach it.
+    if (event.event_type === "tool_call" || event.event_type === "tool_result") {
       pendingTools.push(event);
       continue;
     }
