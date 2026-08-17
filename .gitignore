@@ -40,9 +40,12 @@ old_files/
 # suite cannot be restored on another computer.
 .pytest_cache/
 
-# Per-machine Claude Code permissions. launch.json is shared project
-# config and stays tracked.
-.claude/settings.local.json
+# Claude Code workspace config, per-machine
+.claude/
+
+# Design specs, kept locally rather than published
+atlas-finance-module-spec.md
+telegram-reminder-agent-spec.md
 # Frontend build artifacts
 node_modules/
 web/dist/

@@ -318,3 +318,21 @@ is no flash of the wrong theme, and the layout holds still across all four combi
 
 The walkthrough screenshots earlier in this file are all dark mode — the chat surface and
 the run trace are easier to read that way in a document.
+
+### On a phone
+
+The screenshots above are desktop, but the same app is built to work at phone width — it
+is a real layout, not a shrunk one:
+
+- **The thread list becomes a drawer.** It is a permanent left column from the `lg`
+  breakpoint up and a slide-in drawer below it — one list, one implementation, two shapes.
+- **Section tabs live in the header**, not only in the sidebar. With the sidebar hidden
+  behind a hamburger on a phone, finance would otherwise have been two taps away and
+  invisible until you found the menu. Below `sm` the tabs drop their labels and keep their
+  glyphs.
+- **The dashboard reflows rather than scrolls sideways.** Summary cards go from four
+  columns to two to one, the category and budget panels stack, and the transaction form
+  collapses to a single column.
+- **Touch gets its own affordances.** Edit and delete on a transaction row are revealed on
+  hover at a desk; under `@media (hover: none)` they are simply always visible, because
+  there is no hover to reveal them with.
