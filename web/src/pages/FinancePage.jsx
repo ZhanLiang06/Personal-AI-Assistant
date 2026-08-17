@@ -1050,12 +1050,12 @@ export default function FinancePage({ theme }) {
         )}
       </div>
 
-      {/* Bottom left, clear of the content column's scroll. It is the only way
+      {/* Bottom right, clear of the content column's scroll. It is the only way
           to record a transaction by hand now, so it stays put rather than
           living at the far end of a long page. */}
       <button
         type="button"
-        className="fab fixed bottom-5 left-5 z-40 lg:left-[16.25rem]"
+        className="fab fixed bottom-5 right-5 z-40"
         onClick={openNew}
       >
         <span className="text-[18px] leading-none">+</span>
