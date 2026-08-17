@@ -4,7 +4,9 @@ A personal assistant that actually does things. You type one sentence — "just 
 
 It is a tool-using agent wired to four things you already keep: your Obsidian notes, your daily todo files, your Google Calendar, and a finance ledger it owns end to end. On top of that sits a web app with a chat surface and a finance dashboard.
 
-![Kairos home, telemetry skin](readme-images/homepage-telemetry-theme.png)
+![Kairos home](readme-images/homepage-lightmode.png)
+
+<sub>Shown in the telemetry skin, light mode. There is a second skin and a dark mode for each — see [Two skins, two modes](#two-skins-two-modes) at the end.</sub>
 
 ---
 
@@ -36,7 +38,7 @@ All 26 tools behind these behaviours are catalogued in **[TOOLS.md](TOOLS.md)**.
 
 `/finance` is the direct-manipulation half. Month totals with a comparison to last month, a daily spend bar chart, categories ranked with the gap to the biggest, budgets, a monthly goal, and the full transaction list.
 
-![Finance dashboard](readme-images/finance-page-1-telemetry-theme.png)
+![Finance dashboard](readme-images/finance-page-lightmode.png)
 
 Transactions group by day with a per-day subtotal. Hover a row to edit or delete it. **Explain this month** hands the already-computed summary to a model that writes prose around it — it is given no tools and no database, so it can only narrate numbers that were already final.
 
@@ -51,17 +53,6 @@ Deleting is a two-step with a way back: confirm first, then a toast with **UNDO*
 <p align="center">
   <img src="readme-images/example-delete-transaction.png" width="49%" alt="Delete confirmation" />
   <img src="readme-images/example-toastmessage-transation-deletion-on-success.png" width="42%" alt="Undo toast" />
-</p>
-
----
-
-## Two skins
-
-The UI ships two complete looks — **telemetry** (clean, instrument-panel) and **edgerunner** (neon, cyberpunk) — each with light and dark. They are independent axes on `<html>`, restored before first paint, and the layout does not shift between them.
-
-<p align="center">
-  <img src="readme-images/homepage-edgerunner-theme.png" width="49%" alt="Home, edgerunner skin" />
-  <img src="readme-images/finance-page-edgerunner-theme.png" width="49%" alt="Finance, edgerunner skin" />
 </p>
 
 ---
@@ -213,13 +204,15 @@ own chunk sitting in its true position in the document, not appended at the end.
 whose filename ends in `(no embed)` is excluded — adding that marker to an already-ingested
 note removes its chunks on the next sync.
 
-Start the watcher with:
+The watcher is a long-running script, so it is registered as a **Windows Task Scheduler**
+task that starts it at logon and leaves it running in the background — nothing to remember
+and nothing to keep a terminal open for. To run it by hand instead:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File scripts/watch_vault.ps1
 ```
 
-Or skip it and run a sync by hand whenever you like — `uv run python -m scripts.ingest_vault`
+Or skip the watcher entirely and sync whenever you like — `uv run python -m scripts.ingest_vault`
 does the same work.
 
 ---
@@ -271,7 +264,8 @@ touch what changed:
 uv run python -m scripts.ingest_vault
 ```
 
-Optionally leave the watcher running so edits sync themselves:
+Optionally leave the watcher running so edits sync themselves — by hand as below, or
+registered as a Task Scheduler task that starts at logon:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File scripts/watch_vault.ps1
@@ -298,3 +292,29 @@ uv run pytest
 ```
 
 Deployment — Cloudflare Pages settings, the tunnel, Access, and CORS — is documented in [DEPLOYMENT.md](DEPLOYMENT.md).
+
+---
+
+## Two skins, two modes
+
+The UI ships two complete looks — **telemetry**, clean and instrument-panel, and
+**edgerunner**, neon and cyberpunk — each with a light and a dark mode. They are two
+independent axes on `<html>`, restored by a script that runs before first paint so there
+is no flash of the wrong theme, and the layout holds still across all four combinations.
+
+**Telemetry**, the default — light above, dark here:
+
+<p align="center">
+  <img src="readme-images/homepage-telemetry-theme.png" width="49%" alt="Home, telemetry dark" />
+  <img src="readme-images/finance-page-1-telemetry-theme.png" width="49%" alt="Finance, telemetry dark" />
+</p>
+
+**Edgerunner**:
+
+<p align="center">
+  <img src="readme-images/homepage-edgerunner-theme.png" width="49%" alt="Home, edgerunner" />
+  <img src="readme-images/finance-page-edgerunner-theme.png" width="49%" alt="Finance, edgerunner" />
+</p>
+
+The walkthrough screenshots earlier in this file are all dark mode — the chat surface and
+the run trace are easier to read that way in a document.
