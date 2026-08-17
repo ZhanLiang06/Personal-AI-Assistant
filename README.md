@@ -321,18 +321,14 @@ the run trace are easier to read that way in a document.
 
 ### On a phone
 
-The screenshots above are desktop, but the same app is built to work at phone width — it
-is a real layout, not a shrunk one:
+The screenshots above are from a desktop, but Kairos is built for a phone too — it
+rearranges itself rather than shrinking everything down:
 
-- **The thread list becomes a drawer.** It is a permanent left column from the `lg`
-  breakpoint up and a slide-in drawer below it — one list, one implementation, two shapes.
-- **Section tabs live in the header**, not only in the sidebar. With the sidebar hidden
-  behind a hamburger on a phone, finance would otherwise have been two taps away and
-  invisible until you found the menu. Below `sm` the tabs drop their labels and keep their
-  glyphs.
-- **The dashboard reflows rather than scrolls sideways.** Summary cards go from four
-  columns to two to one, the category and budget panels stack, and the transaction form
-  collapses to a single column.
-- **Touch gets its own affordances.** Edit and delete on a transaction row are revealed on
-  hover at a desk; under `@media (hover: none)` they are simply always visible, because
-  there is no hover to reveal them with.
+- **Your threads slide in from the side.** On a wide screen the list sits permanently on
+  the left; on a phone it tucks away behind the menu button and slides in when you want it.
+- **Chat and Finance are always one tap apart**, right at the top of the screen, so you
+  never have to open the menu just to switch between them.
+- **The dashboard stacks instead of scrolling sideways.** The summary cards, charts, and
+  forms rearrange into a single column that fits the screen you are holding.
+- **Buttons stay where you can tap them.** Actions that only appear when you hover a mouse
+  are simply always visible on a touchscreen.
